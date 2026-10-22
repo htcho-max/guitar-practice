@@ -8,7 +8,7 @@ import { LEVEL_NAMES, type Level } from '../data/settings';
 import { CHANGE_PAIRS } from '../guitar/chords';
 import { PATTERNS, PROGRESSIONS, patternById } from '../finger/patterns';
 import { STRUMS, strumById } from '../strum/patterns';
-import { dueReviews, allReviews, onReviewChange } from '../data/review';
+import { dueReviews, allReviews, onReviewChange, notifyReviews } from '../data/review';
 import { weeklyMinutes, changeProgress, patternProgress } from '../data/trends';
 import type { ReviewRow } from '../data/db';
 import type { NavRequest } from '../state/navigate';
@@ -28,6 +28,8 @@ export function Today({ openSettings }: { openSettings: () => void }) {
   const [allChanges, setAllChanges] = useState<ChangeRow[]>([]);
   const [allRuns, setAllRuns] = useState<FingerRun[]>([]);
   const [showTrend, setShowTrend] = useState(false);
+  const [showReviews, setShowReviews] = useState(false);
+  const [reviews, setReviews] = useState<ReviewRow[]>([]);
   const today = localDate();
   const load = () => {
     const from = addDays(today, -60);
@@ -38,7 +40,7 @@ export function Today({ openSettings }: { openSettings: () => void }) {
     kvGet('finger-ladder', {}).then(setLadder);
     kvGet('strum-ladder', {}).then(setStrumLadder);
     dueReviews().then(setDue);
-    allReviews().then((r) => setReviewCount(r.length));
+    allReviews().then((r) => { setReviewCount(r.length); setReviews(r.sort((a, b) => a.due.localeCompare(b.due))); });
     db.changes.toArray().then(setAllChanges).catch(() => {});
     db.fingerRuns.toArray().then(setAllRuns).catch(() => {});
   };
@@ -124,8 +126,10 @@ export function Today({ openSettings }: { openSettings: () => void }) {
           </div>
         ))}
       </div>
-      <button className="link small" onClick={() => setShowTrend(!showTrend)} data-testid="trend-toggle">{showTrend ? '▾' : '▸'} 주별 추이 · 발전 기록{reviewCount ? ` · 복습함 ${reviewCount}개` : ''}</button>
+      <button className="link small" onClick={() => setShowTrend(!showTrend)} data-testid="trend-toggle">{showTrend ? '▾' : '▸'} 주별 추이 · 발전 기록</button>
       {showTrend && <Trends rows={rows} today={today} changes={allChanges} runs={allRuns} goal={settings.goalMin} />}
+      {reviewCount > 0 && <button className="link small" onClick={() => setShowReviews(!showReviews)} data-testid="reviews-toggle">{showReviews ? '▾' : '▸'} 복습함 전체 {reviewCount}개</button>}
+      {showReviews && <ReviewList rows={reviews} today={today} />}
       {recentRuns.length > 0 && (
         <>
           <h3>최근 따라 치기</h3>
@@ -179,6 +183,25 @@ function Trends({ rows, today, changes, runs, goal }: { rows: PracticeRow[]; tod
       {cp.length > 0 && <><b className="small">1분 전환 (처음 → 최고)</b><ul className="plain small">{cp.map((p) => <li key={p.label}>{p.label}: {p.first} → <b>{p.best}</b>번 <span className="muted">({p.n}번 함)</span></li>)}</ul></>}
       {pp.length > 0 && <><b className="small">패턴 템포 (처음 → 통과한 최고)</b><ul className="plain small">{pp.map((p) => <li key={p.label}>{p.label}: {p.first} → <b>{p.best || '아직'}</b>{p.best ? ' BPM' : ''} <span className="muted">({p.n}번)</span></li>)}</ul></>}
       {!cp.length && !pp.length && <span className="muted small">1분 전환이나 따라 치기를 하면 발전 기록이 쌓여요.</span>}
+    </div>
+  );
+}
+
+const KIND_LABEL: Record<string, string> = { change: '전환', finger: '핑거', strum: '스트럼', song: '곡', chord: '코드', fret: '지판', scale: '스케일' };
+function ReviewList({ rows, today }: { rows: ReviewRow[]; today: string }) {
+  return (
+    <div className="card" data-testid="review-list">
+      <div className="card-head"><b>복습함</b><span className="muted small">상자 1 → 1일 · 2 → 2일 · 3 → 4일 · 4 → 7일 · 5 → 14일 뒤, 5에서 통과하면 졸업</span></div>
+      <ul className="plain review-all">
+        {rows.map((r) => (
+          <li key={r.key}>
+            <span className="tag">{KIND_LABEL[r.kind] ?? r.kind}</span>
+            <span className="grow"><b className="small">{r.label}</b><span className="muted small"> · {r.note}</span><br /><span className="box-dots" aria-label={`상자 ${r.box}`}>{[1, 2, 3, 4, 5].map((b) => <i key={b} className={b <= r.box ? 'on' : ''} />)}</span> <span className={`small ${r.due <= today ? 'accent' : 'muted'}`}>{r.due <= today ? '오늘' : `${Number(r.due.slice(5, 7))}/${Number(r.due.slice(8))}`}</span></span>
+            <button className="mini" onClick={() => navigate(r.nav as NavRequest)}>하기</button>
+            <button className="mini" onClick={async () => { if (confirm(`"${r.label}" 을(를) 복습함에서 뺄까요?`)) { await db.reviews.delete(r.key); notifyReviews(); } }} aria-label="빼기">✕</button>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

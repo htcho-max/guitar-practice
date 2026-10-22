@@ -373,3 +373,31 @@ input.search { width: 100%; }
 .weeks8 { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; }
 .week-col { display: flex; flex-direction: column; align-items: center; gap: 2px; }
 .week-col .week-bar { height: 80px; }
+
+/* 내 패턴 만들기 */
+.sheet.editor { max-width: 720px; }
+.pe-grid-wrap { overflow-x: auto; }
+.pe-grid { border-collapse: separate; border-spacing: 2px; }
+.pe-grid th { font-size: 11px; color: var(--muted); font-weight: 500; text-align: left; white-space: nowrap; padding-right: 6px; }
+.pe-grid thead th { text-align: center; padding: 0; }
+.pe-grid thead th.beat { color: var(--text); font-weight: 800; }
+.pe-grid td { padding: 0; }
+.pe-grid td button { width: 30px; height: 30px; min-height: 30px; padding: 0; border-radius: 8px; background: var(--surface-2); border-color: transparent; font-size: 14px; }
+.pe-grid td.beat button { background: color-mix(in srgb, var(--surface-2) 70%, var(--line)); }
+.pe-grid td button.on { background: var(--accent); color: var(--accent-ink); }
+.pe-grid td.now button { outline: 2px solid var(--accent); }
+.strum-cell.clickable { cursor: pointer; min-height: 52px; }
+.chip.mine { border-style: dashed; }
+.wave { width: 100%; height: 40px; display: block; cursor: pointer; }
+.wave rect { fill: var(--line); }
+.wave rect.played { fill: var(--accent); }
+.wave.b rect.played { fill: var(--good); }
+.ab-box { display: flex; flex-direction: column; gap: 6px; padding: 10px; border-radius: 12px; background: var(--surface-2); }
+.ab-row { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; }
+.rec-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.review-all li { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.review-all li:last-child { border-bottom: none; }
+.tag { font-size: 11px; padding: 2px 8px; border-radius: 99px; background: var(--surface-2); color: var(--muted); white-space: nowrap; }
+.box-dots { display: inline-flex; gap: 3px; vertical-align: middle; }
+.box-dots i { width: 8px; height: 8px; border-radius: 50%; background: var(--surface-2); border: 1px solid var(--line); }
+.box-dots i.on { background: var(--accent); border-color: var(--accent); }

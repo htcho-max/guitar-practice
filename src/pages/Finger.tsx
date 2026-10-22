@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { PATTERNS, PROGRESSIONS, patternById, realize, type Pattern, type Step } from '../finger/patterns';
+import { allPatterns, PROGRESSIONS, patternById, realize, type Pattern, type Step } from '../finger/patterns';
+import { FingerPatternEditor } from '../components/PatternEditors';
+import { useCustomVersion } from '../state/customPatterns';
 import { matchRun, passed, type Expected, type Heard, type RunResult } from '../finger/score';
 import { parseChord, shapeForSymbol } from '../guitar/symbols';
 import { tuningById } from '../guitar/tunings';
@@ -30,6 +32,8 @@ export function FingerTab() {
   const [chords, setChords] = useState<string[]>(req?.chords ?? JSON.parse(localStorage.getItem('guitar-finger-chords') ?? '["C","Am"]'));
   const [ladder, setLadder] = useState<Record<string, { bpm: number; streak: number }>>({});
   const [custom, setCustom] = useState('');
+  const [editing, setEditing] = useState<Pattern | 'new' | null>(null);
+  useCustomVersion();
   const pattern = patternById(pid);
   const bpmState = ladder[pid]?.bpm ?? pattern.bpm[0];
   useEffect(() => { kvGet('finger-ladder', {}).then(setLadder); }, []);
@@ -55,13 +59,15 @@ export function FingerTab() {
           </select>
         </div>
         <div className="chips">
-          {PATTERNS.filter((p) => p.level <= level).map((p) => (
-            <button key={p.id} className={p.id === pid ? 'chip on' : 'chip'} onClick={() => setPid(p.id)}>
-              {p.name}{p.level === level && level > 1 ? ' ★' : ''}
+          {allPatterns().filter((p) => p.custom || p.level <= level).map((p) => (
+            <button key={p.id} className={`${p.id === pid ? 'chip on' : 'chip'} ${p.custom ? 'mine' : ''}`} onClick={() => setPid(p.id)}>
+              {p.name}{p.level === level && level > 1 && !p.custom ? ' ★' : ''}
             </button>
           ))}
+          <button className="chip mine" onClick={() => setEditing('new')} data-testid="finger-new">＋ 내 패턴</button>
         </div>
-        <p className="hint">{pattern.tip}</p>
+        <p className="hint">{pattern.tip}{pattern.custom && <> · <button className="link small" onClick={() => setEditing(pattern)}>고치기</button></>}</p>
+        {editing && <FingerPatternEditor initial={editing === 'new' ? undefined : editing} onClose={(id) => { setEditing(null); if (id) setPid(id); else if (!allPatterns().some((p) => p.id === pid)) setPid('pima'); }} />}
       </div>
       <div className="card">
         <div className="card-head"><b>코드 진행</b><span className="muted small">한 코드 = 한 마디</span></div>

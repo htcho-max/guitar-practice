@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { STRUMS, strumById, strokes, type StrumPattern } from '../strum/patterns';
+import { allStrums, strumById, strokes, type StrumPattern } from '../strum/patterns';
+import { StrumPatternEditor } from '../components/PatternEditors';
+import { useCustomVersion } from '../state/customPatterns';
 import { strumBalance, type StrumHeard } from '../strum/analysis';
 import { PROGRESSIONS } from '../finger/patterns';
 import { matchRun, passed, type Expected, type Heard, type RunResult } from '../finger/score';
@@ -31,6 +33,8 @@ export function StrumPractice({ initial }: { initial?: string }) {
   const [pid, setPid] = useState(initial ?? localStorage.getItem('guitar-strum-pattern') ?? (level === 1 ? 'quarter' : 'folk'));
   const [chords, setChords] = useState<string[]>(JSON.parse(localStorage.getItem('guitar-strum-chords') ?? '["G","C"]'));
   const [ladder, setLadder] = useState<Record<string, { bpm: number; streak: number }>>({});
+  const [editing, setEditing] = useState<StrumPattern | 'new' | null>(null);
+  useCustomVersion();
   const pattern = strumById(pid);
   const bpm = ladder[pid]?.bpm ?? pattern.bpm[0];
   useEffect(() => { kvGet('strum-ladder', {}).then(setLadder); }, []);
@@ -43,9 +47,11 @@ export function StrumPractice({ initial }: { initial?: string }) {
       <div className="card">
         <div className="card-head"><b>긁기 패턴</b><span className="muted small">↓ 다운 · ↑ 업 · ✕ 뮤트 · 쉼에도 손은 흔들기</span></div>
         <div className="chips">
-          {STRUMS.filter((p) => p.level <= level).map((p) => <button key={p.id} className={p.id === pid ? 'chip on' : 'chip'} onClick={() => setPid(p.id)}>{p.name}</button>)}
+          {allStrums().filter((p) => p.custom || p.level <= level).map((p) => <button key={p.id} className={`${p.id === pid ? 'chip on' : 'chip'} ${p.custom ? 'mine' : ''}`} onClick={() => setPid(p.id)}>{p.name}</button>)}
+          <button className="chip mine" onClick={() => setEditing('new')} data-testid="strum-new">＋ 내 긁기</button>
         </div>
-        <p className="hint">{pattern.tip}</p>
+        <p className="hint">{pattern.tip}{pattern.custom && <> · <button className="link small" onClick={() => setEditing(pattern)}>고치기</button></>}</p>
+        {editing && <StrumPatternEditor initial={editing === 'new' ? undefined : editing} onClose={(id) => { setEditing(null); if (id) setPid(id); else if (!allStrums().some((p) => p.id === pid)) setPid('folk'); }} />}
         <div className="chips scroll-x">
           {PROGRESSIONS.filter((p) => p.level <= level && p.chords.length > 1).map((p) => {
             const k = p.chords.join(' ');

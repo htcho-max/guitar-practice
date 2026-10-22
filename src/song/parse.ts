@@ -8,7 +8,7 @@ export type Block =
   | { kind: 'comment'; text: string }
   | { kind: 'line'; segs: Seg[] }
   | { kind: 'bars'; bars: string[][] }
-  | { kind: 'tab'; lines: string[]; events: TabEvent[]; beats: number }
+  | { kind: 'tab'; lines: string[]; events: TabEvent[]; beats: number; /** 리듬 줄 (있으면) */ rhythm?: string }
   | { kind: 'empty' };
 
 export interface SongMeta {
@@ -26,6 +26,8 @@ export interface ParsedSong { meta: SongMeta; blocks: Block[] }
 const DIRECTIVE = /^\{\s*([a-zA-Z_]+)\s*(?::\s*(.*?))?\s*\}$/;
 const TAB_LINE = /^\s*([eEBGDAbgda]|[1-6])?\s*[|:]?[-0-9hpbr/\\~x|.()<>^ ]*-[-0-9hpbr/\\~x|.()<>^ ]*$/;
 const TAB_LABELED = /^\s*([eEBGDAbgda])\s*[|:]/;
+/** 탭 위 리듬 줄: R| q e e s s … (w h q e s, t = 8분 셋잇단, 점 . ) */
+const RHYTHM_LINE = /^\s*[Rr]\s*[|:]/;
 
 /** 화면 폭: 한글·한자는 2칸 */
 export function colWidth(ch: string): number {
@@ -109,7 +111,7 @@ export function parseSong(text: string): ParsedSong {
   let tabBuf: string[] = [];
   const flushTab = () => {
     if (!tabBuf.length) return;
-    for (const group of splitTabGroups(tabBuf)) blocks.push(parseTab(group, meta.beats));
+    for (const g of splitTabGroups(tabBuf)) blocks.push(parseTab(g.lines, meta.beats, g.rhythm));
     tabBuf = [];
   };
   for (let i = 0; i < lines.length; i++) {
@@ -139,6 +141,7 @@ export function parseSong(text: string): ParsedSong {
     // 탭 (6줄 묶음) — {sot} 없이도 알아봄
     const looksTab = TAB_LABELED.test(line) || (inTab && TAB_LINE.test(line) && line.includes('-'));
     if (looksTab) { tabBuf.push(line); continue; }
+    if (RHYTHM_LINE.test(line) && /[|:]\s*[-whqest.\s|]+$/.test(line) && TAB_LABELED.test(lines[i + 1] ?? '')) { tabBuf.push(line); continue; }
     if (inTab && !line.trim()) { flushTab(); continue; }
     flushTab();
     if (!line.trim()) { if (blocks.length && blocks[blocks.length - 1].kind !== 'empty') blocks.push({ kind: 'empty' }); continue; }
@@ -166,17 +169,34 @@ export function parseSong(text: string): ParsedSong {
   return { meta, blocks };
 }
 
-/** 탭 줄을 6줄씩 */
-function splitTabGroups(lines: string[]): string[][] {
-  const out: string[][] = [];
-  for (let i = 0; i + 6 <= lines.length; i += 6) out.push(lines.slice(i, i + 6));
-  const rest = lines.length % 6;
-  if (rest) out.push(lines.slice(lines.length - rest)); // 모자란 묶음 (위 줄부터)
+/** 탭 줄을 6줄씩 (리듬 줄은 다음 묶음에 붙임) */
+function splitTabGroups(lines: string[]): { lines: string[]; rhythm?: string }[] {
+  const out: { lines: string[]; rhythm?: string }[] = [];
+  let cur: string[] = [];
+  let rhythm: string | undefined;
+  for (const l of lines) {
+    if (RHYTHM_LINE.test(l)) { if (cur.length) { out.push({ lines: cur, rhythm }); cur = []; } rhythm = l; continue; }
+    cur.push(l);
+    if (cur.length === 6) { out.push({ lines: cur, rhythm }); cur = []; rhythm = undefined; }
+  }
+  if (cur.length) out.push({ lines: cur, rhythm });
+  return out;
+}
+
+const DUR: Record<string, number> = { w: 4, h: 2, q: 1, e: 0.5, s: 0.25, t: 1 / 3 };
+/** 리듬 줄 → 글자 위치마다 길이(박) */
+export function parseRhythm(line: string): { col: number; dur: number }[] {
+  const out: { col: number; dur: number }[] = [];
+  const re = /([whqest])(\.?)/g;
+  const start = line.search(/[|:]/) + 1;
+  let m: RegExpExecArray | null;
+  re.lastIndex = start;
+  while ((m = re.exec(line))) out.push({ col: m.index, dur: DUR[m[1]] * (m[2] ? 1.5 : 1) });
   return out;
 }
 
 /** ASCII 탭 6줄 → 박 위치가 있는 음들. 위 줄 = 1번 줄 */
-export function parseTab(lines: string[], beatsPerBar = 4): Block & { kind: 'tab' } {
+export function parseTab(lines: string[], beatsPerBar = 4, rhythm?: string): Block & { kind: 'tab' } {
   // 줄 이름 떼기
   const bodies = lines.map((l) => l.replace(/^\s*([eEBGDAbgda]|[1-6])?\s*(?=[|:\-])/, ''));
   const prefix = lines[0].length - bodies[0].length;
@@ -246,6 +266,22 @@ export function parseTab(lines: string[], beatsPerBar = 4): Block & { kind: 'tab
     while (c < idx[idx.length - 1] + 1) c = counts.find((k) => k > c) ?? c * 2;
     for (let i = 0; i < evs.length; i++) events.push({ beat: mi * beatsPerBar + quant((idx[i] * beatsPerBar) / c), notes: evs[i].notes, col: prefix + evs[i].col });
   });
+  // 리듬 줄이 있으면 그 길이대로 (글자 위치 ±1 칸의 음에)
+  if (rhythm) {
+    const toks = parseRhythm(rhythm);
+    if (toks.length) {
+      let t = 0, dur = toks[0].dur;
+      const sorted = events.slice().sort((a, b) => a.col - b.col);
+      for (const e of sorted) {
+        const tok = toks.find((k) => Math.abs(k.col - e.col) <= 1);
+        if (tok) dur = tok.dur;
+        e.beat = Math.round(t * 1000) / 1000;
+        t += dur;
+      }
+      events.sort((a, b) => a.beat - b.beat);
+      return { kind: 'tab', lines, events, beats: Math.max(1, Math.ceil(t / beatsPerBar - 1e-6)) * beatsPerBar, rhythm };
+    }
+  }
   const total = hasBars ? measures.length * beatsPerBar : Math.ceil(((events.at(-1)?.beat ?? 0) + 1) / beatsPerBar) * beatsPerBar;
   return { kind: 'tab', lines, events, beats: total };
 }

@@ -11,6 +11,7 @@ import { useBackLayer, setExitWarning, restoreGuard } from './state/back';
 import { onNavigate, type TabId } from './state/navigate';
 import { useMetronomeRunning } from './state/useMetronome';
 import { metronome } from './audio/metronome';
+import { loadCustomPatterns } from './state/customPatterns';
 
 const TITLES: Record<TabId, string> = { today: '오늘의 연습', chord: '코드', finger: '핑거스타일', song: '내 곡', tuner: '튜너 · 지판' };
 
@@ -22,6 +23,7 @@ export function App({ updatedFrom = null }: { updatedFrom?: string | null }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const { ready, settings } = useSettings();
   const metroOn = useMetronomeRunning();
+  useEffect(() => { loadCustomPatterns().catch(() => {}); }, []);
   const go = (t: TabId) => { setTab(t); try { localStorage.setItem('guitar-tab', t); } catch { /* 무시 */ } };
   useBackLayer(tab !== 'today', () => go('today'));
   useBackLayer(settingsOpen, () => setSettingsOpen(false));

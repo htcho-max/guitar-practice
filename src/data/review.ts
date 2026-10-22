@@ -23,6 +23,7 @@ export function nextReview(prev: ReviewRow | undefined, inp: ReviewInput, passed
 
 const listeners = new Set<() => void>();
 export function onReviewChange(fn: () => void) { listeners.add(fn); return () => { listeners.delete(fn); }; }
+export function notifyReviews() { listeners.forEach((f) => f()); }
 
 /** 연습 결과를 복습함에 반영 */
 export async function recordReview(inp: ReviewInput, passed: boolean) {

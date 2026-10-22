@@ -35,7 +35,7 @@ export interface ReviewRow {
   note: string;
 }
 /** 내 연주 녹음 */
-export interface RecordingRow { id?: number; songId: string; label: string; date: string; at: number; sec: number; mime: string; blob: Blob }
+export interface RecordingRow { id?: number; songId: string; label: string; date: string; at: number; sec: number; mime: string; blob: Blob; /** 파형 (0~1, 160개) — 처음 볼 때 만들어 둠 */ peaks?: number[] }
 
 class GuitarDB extends Dexie {
   practice!: Table<PracticeRow, string>;

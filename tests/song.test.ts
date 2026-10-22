@@ -81,3 +81,26 @@ describe('예시 곡', () => {
     expect(buildTimeline(s).beats).toBe(12);
   });
 });
+
+describe('탭 리듬 줄', () => {
+  it('R| 줄의 길이대로 (점 4분 + 8분 + 셋잇단)', () => {
+    const s = parseSong([
+      'R|q.   e  t t t h        |',
+      'e|0----3--5-3-1-0--------|',
+      'B|-----------------------|',
+      'G|-----------------------|',
+      'D|-----------------------|',
+      'A|-----------------------|',
+      'E|-----------------------|',
+    ].join('\n'));
+    const tab = s.blocks.find((b) => b.kind === 'tab')!;
+    if (tab.kind !== 'tab') throw new Error();
+    expect(tab.rhythm).toBeDefined();
+    expect(tab.events.map((e) => e.beat)).toEqual([0, 1.5, 2, 2.333, 2.667, 3]);
+    expect(tab.beats).toBe(8);
+  });
+  it('리듬 글자가 없는 음은 앞 길이 그대로', () => {
+    const t = parseTab(['e|0-0-0-0-|', 'B|--------|', 'G|--------|', 'D|--------|', 'A|--------|', 'E|--------|'], 4, 'R|q       |');
+    expect(t.events.map((e) => e.beat)).toEqual([0, 1, 2, 3]);
+  });
+});

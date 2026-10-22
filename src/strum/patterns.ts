@@ -1,6 +1,7 @@
 /** 긁기(스트럼) 패턴: 칸마다 D 내려 긋기, U 올려 긋기, x 뮤트(칙), - 쉼(손은 계속 흔듦) */
 export interface StrumPattern {
   id: string;
+  custom?: boolean;
   name: string;
   level: 1 | 2 | 3;
   beats: number;
@@ -22,7 +23,10 @@ export const STRUMS: StrumPattern[] = [
   { id: 'island', name: '엇박 업 (아일랜드)', level: 3, beats: 4, sub: 2, seq: '-U-U-U-U', tip: '박에서는 허공 다운, &에서만 업. 손은 쉬지 않고 흔들어요.', bpm: [70, 120] },
   { id: 'sixteen', name: '16분 팝', level: 3, beats: 4, sub: 4, seq: 'D-DU-UDU-UDUD-DU', tip: '16분 손 흔들기를 유지하면서 일부만 맞히기. 느리게 시작하세요.', bpm: [50, 90] },
 ];
-export const strumById = (id: string) => STRUMS.find((s) => s.id === id) ?? STRUMS[0];
+const custom: StrumPattern[] = [];
+export function setCustomStrums(list: StrumPattern[]) { custom.splice(0, custom.length, ...list.map((p) => ({ ...p, custom: true }))); }
+export function allStrums(): StrumPattern[] { return [...STRUMS, ...custom]; }
+export const strumById = (id: string) => allStrums().find((s) => s.id === id) ?? STRUMS[0];
 
 /** 칸마다 세는 말 (1 & 2 & / 1 e & a) */
 export function countLabel(slot: number, sub: number): string {

@@ -6,6 +6,8 @@ export type Role = 'p' | 'p2' | 'i' | 'm' | 'a' | 'x';
 
 export interface Pattern {
   id: string;
+  /** 내가 만든 패턴 */
+  custom?: boolean;
   name: string;
   level: 1 | 2 | 3;
   /** 한 마디 박 수 */
@@ -32,7 +34,16 @@ export const PATTERNS: Pattern[] = [
   { id: 'perc', name: '퍼커시브 (2·4박 히트)', level: 3, beats: 4, sub: 2, seq: 'p i x m p2 i x m', tip: 'x 자리는 손바닥(엄지 아래)으로 줄을 치며 소리를 죽입니다. 스네어 드럼 느낌.', bpm: [70, 110] },
   { id: 'sixteen', name: '16분 아르페지오', level: 3, beats: 4, sub: 4, seq: 'p i m a m i m i p2 i m a m i m i', tip: '느린 템포에서 고르게. 16분이 흔들리면 템포를 낮추세요.', bpm: [50, 90] },
 ];
-export const patternById = (id: string) => PATTERNS.find((p) => p.id === id) ?? PATTERNS[0];
+const custom: Pattern[] = [];
+/** 내 패턴 (앱 시작할 때 kv 에서 읽어 넣음) */
+export function setCustomPatterns(list: Pattern[]) { custom.splice(0, custom.length, ...list.map((p) => ({ ...p, custom: true }))); }
+export function allPatterns(): Pattern[] { return [...PATTERNS, ...custom]; }
+export const patternById = (id: string) => allPatterns().find((p) => p.id === id) ?? PATTERNS[0];
+
+/** 칸마다 역할 목록 → seq 글자 */
+export function toSeq(cells: Role[][]): string {
+  return cells.map((c) => (c.length ? c.join('+') : '-')).join(' ');
+}
 
 /** 연습용 코드 진행 */
 export const PROGRESSIONS: { level: 1 | 2 | 3; chords: string[] }[] = [

@@ -105,9 +105,26 @@ try {
     ok(await seen(page.getByTestId('strum-result'), ((4 + 16) * 60 / sbpm) * 1000 + 3000), `따라 긁기 결과 (${sbpm} BPM)`);
     await shotTall(page, 'scripts/shot-strum.png');
 
+    // 내 긁기 패턴 만들기
+    await page.getByTestId('strum-new').click();
+    ok(await seen(page.getByRole('dialog', { name: '긁기 패턴 만들기' })), '내 긁기 편집기');
+    await page.getByRole('dialog').getByLabel('패턴 이름').fill('내 셔플');
+    await page.getByRole('dialog').getByRole('button', { name: 'e 칸' }).first().click().catch(() => {});
+    await page.getByRole('dialog').getByRole('button', { name: '& 칸' }).first().click();
+    await page.getByRole('dialog').getByRole('button', { name: '저장' }).click();
+    ok(await seen(page.locator('.chip.on', { hasText: '내 셔플' })), '내 긁기 저장·선택');
     // 핑거: 들어 보기 → 따라 치기 (가짜 마이크 소리로 결과까지)
     await tab(page, '핑거');
     ok(await seen(page.locator('svg.tab-bar')), '핑거 탭 그림');
+    // 내 핑거 패턴 만들기: 기본 8칸에서 4박 a 를 빼고 몸통 치기
+    await page.getByTestId('finger-new').click();
+    ok(await seen(page.getByRole('dialog', { name: '핑거 패턴 만들기' })), '내 패턴 편집기');
+    await page.getByRole('dialog').getByLabel('패턴 이름').fill('내 아르페지오');
+    await page.getByRole('dialog').getByRole('button', { name: '3 ✕ 몸통 치기' }).click();
+    await page.getByRole('dialog').getByRole('button', { name: '저장' }).click();
+    ok(await seen(page.locator('.chip.on', { hasText: '내 아르페지오' })), '내 패턴 저장·선택');
+    ok(await seen(page.locator('.tab-hit')), '내 패턴: 몸통 치기 표시');
+    await page.screenshot({ path: 'scripts/shot-mypattern.png' });
     await page.locator('.chips').getByRole('button', { name: 'p-i-m-a 오르기' }).click();
     await page.locator('.chips').getByRole('button', { name: 'C – G – Am – F' }).click();
     ok((await page.locator('svg.tab-bar').count()) === 4, '진행 4마디');
@@ -168,6 +185,16 @@ try {
     ok(await seen(page.locator('.sb-seg.ok, .sb-seg.close, .sb-seg.wrong')), '코드 판정 색');
     ok(await seen(page.getByText('내 녹음')), '녹음 저장');
     await shotTall(page, 'scripts/shot-song-follow.png');
+    // 짧게 하나 더 녹음 → A/B 비교
+    await page.getByRole('button', { name: '▶ 재생' }).click();
+    await page.waitForTimeout(2500);
+    await page.getByRole('button', { name: '■ 정지' }).click();
+    ok(await seen(page.locator('.rec-list li').nth(1), 5000), '녹음 2개');
+    const boxes = page.getByLabel('비교할 녹음으로 고르기');
+    await boxes.nth(0).check(); await boxes.nth(1).check();
+    ok(await seen(page.getByTestId('ab-compare')), 'A/B 비교');
+    ok(await seen(page.locator('.wave rect'), 5000), '파형');
+    await shotTall(page, 'scripts/shot-recordings.png');
     await page.getByRole('button', { name: '목록으로' }).click();
     // 새 곡 붙여 넣기
     await page.getByRole('button', { name: '＋ 새 곡' }).click();
@@ -188,6 +215,9 @@ try {
     ok(await seen(page.locator('.status-chip')), '다른 탭에서 메트로놈 표시');
     await page.locator('.status-chip button').click();
     ok(await seen(page.getByText(/핑거|코드 전환/)), '오늘 화면: 오늘 한 연습');
+    ok(await seen(page.getByTestId('reviews-toggle')), '복습함 (따라 치기 실패가 들어감)');
+    await page.getByTestId('reviews-toggle').click();
+    ok(await seen(page.getByTestId('review-list')), '복습함 전체 목록');
     await page.getByTestId('trend-toggle').click();
     ok(await seen(page.getByTestId('trends')), '주별 추이 열기');
     ok(await seen(page.getByText('패턴 템포 (처음 → 통과한 최고)')), '패턴 발전 기록');

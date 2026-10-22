@@ -16,7 +16,7 @@ import { recordReview } from '../data/review';
 import { parseChord, shapeForSymbol, transposeName } from '../guitar/symbols';
 import { shapeMidis, type ChordShape } from '../guitar/chords';
 import { tuningById } from '../guitar/tunings';
-import { PATTERNS } from '../finger/patterns';
+import { allPatterns } from '../finger/patterns';
 import { ChordDiagram } from '../components/ChordDiagram';
 import { Sequencer, type SeqEvent } from '../audio/sequencer';
 import type { Sound } from '../song/plan';
@@ -337,7 +337,7 @@ function SongView({ song, onBack, onEdit, initialRange }: { song: SongRow; onBac
           <option value="none">소리 없이 (따라가기만)</option>
         </select>
         {accomp === 'strum' && <input className="text mono" value={strum} onChange={(e) => setStrum(e.target.value)} aria-label="긁기 패턴" style={{ maxWidth: 130 }} />}
-        {accomp === 'finger' && <select value={fingerId} onChange={(e) => setFingerId(e.target.value)}>{PATTERNS.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select>}
+        {accomp === 'finger' && <select value={fingerId} onChange={(e) => setFingerId(e.target.value)}>{allPatterns().map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select>}
         <label><input type="checkbox" checked={click} onChange={(e) => setClick(e.target.checked)} /> 클릭</label>
         <label><input type="checkbox" checked={autoScroll} onChange={(e) => setAutoScroll(e.target.checked)} /> 따라 내리기</label>
       </div>
@@ -432,8 +432,8 @@ function SongBlock({ block: b, bi, now, shown, onChord, meta, marks }: { block: 
   const ev = now?.block === bi && now.event !== undefined ? b.events[now.event] : null;
   return (
     <div className="sb-tab">
-      <pre>{b.lines.join('\n')}</pre>
-      {ev && <span className="sb-tab-now" style={{ left: `${ev.col}ch` }} />}
+      <pre>{(b.rhythm ? [b.rhythm, ...b.lines] : b.lines).join('\n')}</pre>
+      {ev && <span className="sb-tab-now" style={{ left: `${ev.col}ch`, top: b.rhythm ? '1.25em' : 0 }} />}
       {marks && b.events.map((e, ei) => marks[`${bi}:e${ei}`] && marks[`${bi}:e${ei}`] !== 'ok' ? <span key={ei} className={`sb-tab-mark ${marks[`${bi}:e${ei}`]}`} style={{ left: `${e.col}ch` }} /> : null)}
       {meta.capo > 0 && <span className="muted small">카포 {meta.capo} 기준 프렛</span>}
     </div>
