@@ -60,6 +60,20 @@ E|-0-----------------|-0-----------------|-0-----------------|-0----------------
   },
 ];
 
+const TWINKLE_SONG = `{title: 반짝반짝 작은 별 (멜로디 포함)}
+{artist: 프랑스 민요}
+{time: 4/4}
+{tempo: 80}
+{c: 마디 줄 아래 M| 줄이 멜로디 — "핑거스타일로 편곡"을 누르면 멜로디 + 베이스 탭을 만들어요}
+
+| C | F C | F C | G C |
+M| C4q C4q G4q G4q | A4q A4q G4h | F4q F4q E4q E4q | D4q D4q C4h |
+| C F | C G | C F | C G |
+M| G4q G4q F4q F4q | E4q E4q D4h | G4q G4q F4q F4q | E4q E4q D4h |
+| C | F C | F C | G C |
+M| C4q C4q G4q G4q | A4q A4q G4h | F4q F4q E4q E4q | D4q D4q C4h |`;
+SAMPLE_SONGS.push({ title: '반짝반짝 작은 별 (멜로디 포함)', artist: '프랑스 민요', text: TWINKLE_SONG });
+
 export const FORMAT_HELP = `머리말: {title: 제목} {artist: 가수} {capo: 2} {tempo: 90} {time: 3/4}
   {strum: D-DU-UDU} (한 마디 긁기, D 내려 U 올려 - 쉼 x 뮤트) {finger: travis} (핑거 패턴)
   {chord_beats: 2} (가사 줄 코드 하나가 몇 박, 기본 한 마디)
@@ -69,4 +83,5 @@ export const FORMAT_HELP = `머리말: {title: 제목} {artist: 가수} {capo: 2
 탭: e| B| G| D| A| E| 로 시작하는 여섯 줄 (마디 | 로 나누면 박이 정확해요)
   탭 위에 리듬 줄 R| 을 두면 그 길이대로: w온 h2분 q4분 e8분 s16분 t셋잇단8분, 점(.)은 1.5배
   R|q  e e q  q  |   ← 글자를 그 음 숫자 위에 맞춰요
-구간: {soc: 후렴} [Chorus] 처럼 한 줄에`;
+구간: {soc: 후렴} [Chorus] 처럼 한 줄에
+멜로디: M| G4q A4e B4e C5h | rq D4q … (음이름+옥타브+길이, r 은 쉼) → 핑거스타일 편곡에 씀`;

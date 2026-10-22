@@ -115,6 +115,25 @@ try {
     ok(await seen(page.locator('.chip.on', { hasText: '내 셔플' })), '내 긁기 저장·선택');
     // 핑거: 들어 보기 → 따라 치기 (가짜 마이크 소리로 결과까지)
     await tab(page, '핑거');
+    // 핑거스타일 (멜로디 + 베이스)
+    ok(await seen(page.getByRole('button', { name: '핑거스타일', exact: true })), '핑거 탭: 핑거스타일 / 아르페지오');
+    await page.locator('.chips').getByRole('button', { name: /환희의 송가/ }).click();
+    await page.getByRole('button', { name: /2단계 · 박마다 엄지/ }).click();
+    ok((await page.locator('svg.fs-bar').count()) === 8, '환희의 송가 8마디 탭');
+    ok((await page.locator('.tab-num.fs-mel').count()) >= 28, '멜로디 음 표시');
+    await page.getByRole('button', { name: '▶ 들어 보기' }).click();
+    await page.waitForTimeout(1500);
+    ok(await seen(page.locator('.fs-bar .tab-now')), '핑거스타일 들어 보기: 지금 칸');
+    await page.getByRole('button', { name: '■ 정지' }).click();
+    await page.getByLabel('베이스').uncheck();
+    ok((await page.locator('.fs-bar .tab-num:not(.fs-mel)').count()) === 0, '베이스 끄면 멜로디만 보임');
+    await page.getByLabel('베이스').check();
+    for (let i = 0; i < 10; i++) await page.getByRole('button', { name: '+4' }).click();
+    const fsb = num(await page.getByTestId('fs-bpm').textContent());
+    await page.getByTestId('fs-follow').click();
+    ok(await seen(page.getByTestId('fs-result'), (36 * 60 / fsb) * 1000 + 3000), `핑거스타일 따라 치기 결과 (${fsb} BPM)`);
+    await shotTall(page, 'scripts/shot-fingerstyle.png');
+    await page.getByRole('button', { name: '아르페지오', exact: true }).click();
     ok(await seen(page.locator('svg.tab-bar')), '핑거 탭 그림');
     // 내 핑거 패턴 만들기: 기본 8칸에서 4박 a 를 빼고 몸통 치기
     await page.getByTestId('finger-new').click();
@@ -145,7 +164,7 @@ try {
 
     // 내 곡: 예시 넣기 → 아리랑 열기 → 재생
     await tab(page, '내 곡');
-    await page.getByRole('button', { name: /예시 곡 3개 넣기/ }).click();
+    await page.getByRole('button', { name: /예시 곡 넣기/ }).click();
     ok(await seen(page.getByRole('button', { name: /아리랑/ })), '예시 곡 목록');
     await page.getByRole('button', { name: /아리랑/ }).click();
     ok(await seen(page.locator('.sb-chord', { hasText: 'Em' })), '아리랑 코드 Em 표시');
@@ -195,6 +214,24 @@ try {
     ok(await seen(page.getByTestId('ab-compare')), 'A/B 비교');
     ok(await seen(page.locator('.wave rect'), 5000), '파형');
     await shotTall(page, 'scripts/shot-recordings.png');
+    await page.getByRole('button', { name: '목록으로' }).click();
+    // 멜로디 있는 곡 → 핑거스타일 편곡 → 새 곡으로 저장
+    await page.getByRole('button', { name: /반짝반짝 작은 별 \(멜로디 포함\)/ }).click();
+    await page.getByTestId('arrange-open').click();
+    ok(await seen(page.getByRole('dialog', { name: '핑거스타일 편곡' })), '편곡 창');
+    ok((await page.locator('.sheet svg.fs-bar').count()) === 12, '작은 별 12마디 편곡');
+    await page.getByRole('dialog').getByRole('button', { name: /3단계/ }).click();
+    await page.getByTestId('arrange-save').click();
+    ok(await seen(page.getByText('새 곡으로 저장했어요')), '편곡 저장');
+    await shotTall(page, 'scripts/shot-arrange.png');
+    await page.getByRole('dialog').getByRole('button', { name: '닫기' }).click();
+    await page.getByRole('button', { name: '목록으로' }).click();
+    await page.getByRole('button', { name: /작은 별 \(멜로디 포함\) \(핑거스타일 3단계\)/ }).click();
+    ok(await seen(page.locator('.sb-tab')), '편곡한 곡: 탭');
+    await page.getByRole('button', { name: '▶ 재생' }).click();
+    await page.waitForTimeout(3000);
+    ok(await seen(page.locator('.sb-tab-now')), '편곡한 곡 재생');
+    await page.getByRole('button', { name: '■ 정지' }).click();
     await page.getByRole('button', { name: '목록으로' }).click();
     // 새 곡 붙여 넣기
     await page.getByRole('button', { name: '＋ 새 곡' }).click();

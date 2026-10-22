@@ -8,12 +8,13 @@ import { LEVEL_NAMES, type Level } from '../data/settings';
 import { CHANGE_PAIRS } from '../guitar/chords';
 import { PATTERNS, PROGRESSIONS, patternById } from '../finger/patterns';
 import { STRUMS, strumById } from '../strum/patterns';
+import { tuneById } from '../fingerstyle/tunes';
 import { dueReviews, allReviews, onReviewChange, notifyReviews } from '../data/review';
 import { weeklyMinutes, changeProgress, patternProgress } from '../data/trends';
 import type { ReviewRow } from '../data/db';
 import type { NavRequest } from '../state/navigate';
 
-const KIND_NAMES: Record<string, string> = { tuner: '튜닝', metronome: '메트로놈', chord: '코드 잡기', change: '코드 전환', strum: '스트럼', fretboard: '지판', finger: '핑거', song: '곡' };
+const KIND_NAMES: Record<string, string> = { tuner: '튜닝', metronome: '메트로놈', chord: '코드 잡기', change: '코드 전환', strum: '스트럼', fretboard: '지판', fingerstyle: '핑거스타일', finger: '아르페지오', song: '곡' };
 
 export function Today({ openSettings }: { openSettings: () => void }) {
   const { settings, update } = useSettings();
@@ -67,11 +68,14 @@ export function Today({ openSettings }: { openSettings: () => void }) {
   const prog = PROGRESSIONS.filter((p) => p.level === level)[new Date().getDate() % PROGRESSIONS.filter((p) => p.level === level).length];
   const strs = STRUMS.filter((p) => p.level === level);
   const strum = strs.find((p) => (strumLadder[p.id]?.bpm ?? p.bpm[0]) < p.bpm[1]) ?? strs[0];
+  const fsTune = tuneById(level === 1 ? 'twinkle' : level === 2 ? 'ode' : 'greensleeves');
+  const fsStyle = level === 1 ? 1 : level === 2 ? 2 : 3;
   const plan = [
     { key: 'tuner', title: '튜닝', sub: '여섯 줄 모두 ✓', go: () => navigate({ tab: 'tuner', view: 'tuner' }) },
     { key: 'change', title: `코드 전환 1분: ${pair[0]} ↔ ${pair[1]}`, sub: bestOf(pair.join('|')) >= 0 ? `최고 ${bestOf(pair.join('|'))}번` : '처음', go: () => navigate({ tab: 'chord', mode: 'change', pair }) },
     { key: 'strum', title: `스트럼: ${strum.name}`, sub: `${strumLadder[strum.id]?.bpm ?? strum.bpm[0]} BPM`, go: () => navigate({ tab: 'chord', mode: 'strum', strumId: strum.id }) },
-    { key: 'finger', title: `핑거: ${pat.name}`, sub: `${prog.chords.join(' – ')} · ${ladder[pat.id]?.bpm ?? pat.bpm[0]} BPM`, go: () => navigate({ tab: 'finger', patternId: pat.id, chords: prog.chords }) },
+    { key: 'fingerstyle', title: `핑거스타일: ${fsTune.title}`, sub: `${fsStyle}단계 · 멜로디 + 베이스`, go: () => navigate({ tab: 'finger', mode: 'fs', tuneId: fsTune.id, style: fsStyle }) },
+    { key: 'finger', title: `아르페지오: ${pat.name}`, sub: `${prog.chords.join(' – ')} · ${ladder[pat.id]?.bpm ?? pat.bpm[0]} BPM`, go: () => navigate({ tab: 'finger', mode: 'arp', patternId: pat.id, chords: prog.chords }) },
     ...(level >= 2 ? [{ key: 'fretboard', title: level === 2 ? '지판 음 이름 외우기' : '스케일 모양', sub: level === 2 ? '20문제 · 0~12프렛' : '펜타토닉 한 포지션 따라 치기', go: () => navigate({ tab: 'tuner', view: 'fretboard', sub: level === 2 ? 'names' : 'scales' }) }] : []),
     { key: 'song', title: lastSong ? `곡: ${lastSong.title}` : '내 곡 넣기', sub: lastSong ? '이어서 연습' : '코드 악보·탭 붙여 넣기', go: () => navigate({ tab: 'song', songId: lastSong?.id }) },
   ];
@@ -134,7 +138,7 @@ export function Today({ openSettings }: { openSettings: () => void }) {
         <>
           <h3>최근 따라 치기</h3>
           <ul className="plain small">
-            {recentRuns.map((r) => <li key={r.id}>{r.patternId.startsWith('strum:') ? `스트럼 ${strumById(r.patternId.slice(6)).name}` : patternById(r.patternId).name} · {r.bpm} BPM · 맞춘 {Math.round(r.hitRate * 100)}% · 흔들림 ±{Math.round(r.sdMs)}ms {r.passed ? '✓' : ''}</li>)}
+            {recentRuns.map((r) => <li key={r.id}>{r.patternId.startsWith('strum:') ? `스트럼 ${strumById(r.patternId.slice(6)).name}` : r.patternId.startsWith('fs:') ? `핑거스타일 ${tuneById(r.patternId.split(':')[1]).title} ${r.patternId.split(':')[2]}단계` : `아르페지오 ${patternById(r.patternId).name}`} · {r.bpm} BPM · 맞춘 {Math.round(r.hitRate * 100)}% · 흔들림 ±{Math.round(r.sdMs)}ms {r.passed ? '✓' : ''}</li>)}
           </ul>
         </>
       )}
@@ -167,7 +171,7 @@ function Trends({ rows, today, changes, runs, goal }: { rows: PracticeRow[]; tod
   const weeks = weeklyMinutes(rows, today, 8);
   const max = Math.max(goal * 7, ...weeks.map((w) => w.min), 1);
   const cp = changeProgress(changes).slice(0, 4);
-  const pp = patternProgress(runs, (id) => (id.startsWith('strum:') ? `스트럼 ${strumById(id.slice(6)).name}` : patternById(id).name)).slice(0, 4);
+  const pp = patternProgress(runs, (id) => (id.startsWith('strum:') ? `스트럼 ${strumById(id.slice(6)).name}` : id.startsWith('fs:') ? `핑거스타일 ${tuneById(id.split(':')[1]).title} ${id.split(':')[2]}단계` : `아르페지오 ${patternById(id).name}`)).slice(0, 4);
   return (
     <div className="card" data-testid="trends">
       <b>주별 연습 시간 (분)</b>
@@ -187,7 +191,7 @@ function Trends({ rows, today, changes, runs, goal }: { rows: PracticeRow[]; tod
   );
 }
 
-const KIND_LABEL: Record<string, string> = { change: '전환', finger: '핑거', strum: '스트럼', song: '곡', chord: '코드', fret: '지판', scale: '스케일' };
+const KIND_LABEL: Record<string, string> = { change: '전환', strum: '스트럼', song: '곡', chord: '코드', fret: '지판', scale: '스케일' };
 function ReviewList({ rows, today }: { rows: ReviewRow[]; today: string }) {
   return (
     <div className="card" data-testid="review-list">

@@ -1,7 +1,7 @@
 import Dexie, { type Table } from 'dexie';
 
 /** 하루·종류별 연습 시간 (key = 날짜:종류) */
-export type PracticeKind = 'tuner' | 'metronome' | 'chord' | 'change' | 'strum' | 'finger' | 'song' | 'fretboard';
+export type PracticeKind = 'tuner' | 'metronome' | 'chord' | 'change' | 'strum' | 'finger' | 'song' | 'fretboard' | 'fingerstyle';
 export interface PracticeRow { key: string; date: string; kind: PracticeKind; sec: number }
 /** 1분 전환 기록 */
 export interface ChangeRow { id?: number; pair: string; count: number; date: string; at: number; auto: boolean }

@@ -9,6 +9,7 @@ export type Block =
   | { kind: 'line'; segs: Seg[] }
   | { kind: 'bars'; bars: string[][] }
   | { kind: 'tab'; lines: string[]; events: TabEvent[]; beats: number; /** 리듬 줄 (있으면) */ rhythm?: string }
+  | { kind: 'melody'; text: string }
   | { kind: 'empty' };
 
 export interface SongMeta {
@@ -149,6 +150,7 @@ export function parseSong(text: string): ParsedSong {
       blocks.push({ kind: 'section', label: line.trim().replace(/^\[|\]$|:$/g, '') });
       continue;
     }
+    if (/^\s*M\s*[|:]/.test(line)) { blocks.push({ kind: 'melody', text: line.trim() }); continue; }
     if (isBarsLine(line)) { blocks.push({ kind: 'bars', bars: parseBars(line) }); continue; }
     if (line.includes('[') && /\[[^\]]+\]/.test(line)) { blocks.push({ kind: 'line', segs: parseInline(line) }); continue; }
     if (isChordLine(line)) {

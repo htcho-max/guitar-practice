@@ -110,3 +110,10 @@ function chordLike(pcs: number[]): number[] {
   for (const p of pcs) noteTemplate(p).forEach((v, i) => { t[i] += v; });
   return t;
 }
+
+/** 여러 음이 함께 들어올 때 이 음이 들어 있는지 (가장 비슷한 음 점수의 75% 이상) */
+export function containsNote(chroma: number[], pc: number): boolean {
+  let best = 0;
+  for (let q = 0; q < 12; q++) best = Math.max(best, cosine(chroma, noteTemplate(q)));
+  return best > 0 && cosine(chroma, noteTemplate(pc)) >= best * 0.75;
+}

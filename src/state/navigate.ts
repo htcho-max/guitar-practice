@@ -2,7 +2,7 @@
 export type TabId = 'today' | 'chord' | 'finger' | 'song' | 'tuner';
 export type NavRequest =
   | { tab: 'chord'; mode: 'dict' | 'change' | 'strum'; chord?: string; pair?: [string, string]; strumId?: string }
-  | { tab: 'finger'; patternId?: string; chords?: string[] }
+  | { tab: 'finger'; mode?: 'arp' | 'fs'; patternId?: string; chords?: string[]; tuneId?: string; style?: number }
   | { tab: 'song'; songId?: string; range?: [number, number] }
   | { tab: 'tuner'; view?: 'tuner' | 'metronome' | 'fretboard'; sub?: 'names' | 'scales' }
   | { tab: 'today' };

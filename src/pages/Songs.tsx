@@ -13,6 +13,10 @@ import { useMic } from '../state/useMic';
 import { localDate } from '../data/dates';
 import { Recordings } from '../components/Recordings';
 import { recordReview } from '../data/review';
+import { parseMelody } from '../fingerstyle/melody';
+import { arrange, FS_STYLES, type FsStyle, type ChordSpan } from '../fingerstyle/arrange';
+import { toSongText } from '../fingerstyle/ascii';
+import { FsPlayer } from './Fingerstyle';
 import { parseChord, shapeForSymbol, transposeName } from '../guitar/symbols';
 import { shapeMidis, type ChordShape } from '../guitar/chords';
 import { tuningById } from '../guitar/tunings';
@@ -62,7 +66,7 @@ export function SongsTab() {
     return <SongEditor song={editing === 'new' ? null : editing} onClose={(id) => { setEditing(null); load(); if (id) setOpenId(id); }} />;
   }
   if (open) {
-    return <SongView key={open.id} initialRange={req?.songId === open.id ? req.range : undefined} song={open} onBack={() => setOpenId(null)} onEdit={() => setEditing(open)} onChange={load} />;
+    return <SongView key={open.id} initialRange={req?.songId === open.id ? req.range : undefined} song={open} onBack={() => { setOpenId(null); load(); }} onEdit={() => setEditing(open)} onChange={load} />;
   }
   const list = (songs ?? []).filter((s) => !q || (s.title + s.artist).toLowerCase().includes(q.toLowerCase()));
   return (
@@ -80,7 +84,7 @@ export function SongsTab() {
         <div className="card">
           <b>아직 곡이 없어요</b>
           <p className="hint">인터넷 코드 악보나 탭을 복사해서 ＋ 새 곡에 붙여 넣으면 돼요. 형식을 보려면 예시 곡을 넣어 보세요.</p>
-          <button className="secondary" onClick={addSamples}>예시 곡 3개 넣기 (아리랑 · Amazing Grace · 로망스)</button>
+          <button className="secondary" onClick={addSamples}>예시 곡 넣기 (아리랑 · Amazing Grace · 로망스 · 작은 별)</button>
         </div>
       )}
       <ul className="song-list">
@@ -92,7 +96,7 @@ export function SongsTab() {
           </li>
         ))}
       </ul>
-      {songs && songs.length > 0 && !songs.some((s) => SAMPLE_SONGS.some((x) => x.title === s.title)) && <button className="link small muted" onClick={addSamples}>예시 곡 넣기</button>}
+      {songs && songs.length > 0 && SAMPLE_SONGS.some((x) => !songs.some((s) => s.title === x.title)) && <button className="link small muted" onClick={addSamples}>예시 곡 넣기</button>}
     </div>
   );
 }
@@ -164,6 +168,9 @@ function SongView({ song, onBack, onEdit, initialRange }: { song: SongRow; onBac
   const [rec, setRec] = useState(false);
   const [recTick, setRecTick] = useState(0);
   const [result, setResult] = useState<FollowResult | null>(null);
+  const [arranging, setArranging] = useState(false);
+  useBackLayer(arranging, () => setArranging(false));
+  const melodyText = useMemo(() => parsed.blocks.filter((b): b is Block & { kind: 'melody' } => b.kind === 'melody').map((b) => b.text).join(' '), [parsed]);
   const { start: micStart, stop: micStop, error: micErr } = useMic({ reading: false });
   const bodyRef = useRef<HTMLDivElement>(null);
   const playing = mode !== 'idle';
@@ -347,6 +354,10 @@ function SongView({ song, onBack, onEdit, initialRange }: { song: SongRow; onBac
         {range && !picking && <><span>{rangeBars}마디 구간</span><label><input type="checkbox" checked={loop} onChange={(e) => setLoop(e.target.checked)} /> 반복</label><button className="mini" onClick={() => setRange(null)}>전체로</button></>}
         <label className="rec-toggle"><input type="checkbox" checked={rec} onChange={(e) => setRec(e.target.checked)} disabled={playing} /> ● 녹음</label>
       </div>
+      {melodyText ? (
+        <button className="secondary" onClick={() => { stop(); setArranging(true); }} data-testid="arrange-open">🎸 핑거스타일로 편곡 (멜로디 + 베이스)</button>
+      ) : chordsUsed.length > 0 && <p className="hint small">M| 줄로 멜로디를 적어 두면 코드와 합쳐 핑거스타일 탭을 만들어 줘요 (고치기 → 형식 도움말).</p>}
+      {arranging && <ArrangeSheet song={song} melody={melodyText} timeline={timeline} beatsPerBar={meta.beats} tempo={meta.tempo || 80} onClose={() => setArranging(false)} />}
       {chordsUsed.length > 0 && (
         <div className="chips scroll-x">
           {chordsUsed.map((c) => <button key={c} className="chip" onClick={() => setDiagram(c)}>{c}</button>)}
@@ -403,6 +414,7 @@ function SongView({ song, onBack, onEdit, initialRange }: { song: SongRow; onBac
 function SongBlock({ block: b, bi, now, shown, onChord, meta, marks }: { block: Block; bi: number; now: Vis | null; shown: (n: string) => string; onChord: (c: string) => void; meta: ParsedSong['meta']; marks?: Marks }) {
   if (b.kind === 'empty') return <div className="sb-empty" />;
   if (b.kind === 'section') return <div className="sb-section">{b.label}</div>;
+  if (b.kind === 'melody') return <div className="sb-melody">{b.text}</div>;
   if (b.kind === 'comment') return <div className="sb-comment">{b.text}</div>;
   if (b.kind === 'line') {
     const hasChord = b.segs.some((s) => s.chord);
@@ -436,6 +448,35 @@ function SongBlock({ block: b, bi, now, shown, onChord, meta, marks }: { block: 
       {ev && <span className="sb-tab-now" style={{ left: `${ev.col}ch`, top: b.rhythm ? '1.25em' : 0 }} />}
       {marks && b.events.map((e, ei) => marks[`${bi}:e${ei}`] && marks[`${bi}:e${ei}`] !== 'ok' ? <span key={ei} className={`sb-tab-mark ${marks[`${bi}:e${ei}`]}`} style={{ left: `${e.col}ch` }} /> : null)}
       {meta.capo > 0 && <span className="muted small">카포 {meta.capo} 기준 프렛</span>}
+    </div>
+  );
+}
+
+/** 내 곡 멜로디(M| 줄) + 코드 → 핑거스타일 탭 */
+function ArrangeSheet({ song, melody, timeline, beatsPerBar, tempo, onClose }: { song: SongRow; melody: string; timeline: ReturnType<typeof buildTimeline>; beatsPerBar: number; tempo: number; onClose: () => void }) {
+  const [style, setStyle] = useState<FsStyle>(2);
+  const [bpm, setBpm] = useState(Math.max(50, Math.round(tempo * 0.75)));
+  const [saved, setSaved] = useState<string | null>(null);
+  const mel = useMemo(() => parseMelody(melody), [melody]);
+  const spans: ChordSpan[] = useMemo(() => timeline.items.filter((i): i is TimelineItem & { kind: 'chord' } => i.kind === 'chord').map((i) => ({ beat: i.beat, dur: i.dur, name: i.chord })), [timeline]);
+  const arr = useMemo(() => arrange(mel.notes, spans, beatsPerBar, style), [mel, spans, beatsPerBar, style]);
+  const melBeats = mel.beats, chordBeats = spans.reduce((t, c) => Math.max(t, c.beat + c.dur), 0);
+  return (
+    <div className="sheet-backdrop" onClick={onClose}>
+      <div className="sheet editor" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="핑거스타일 편곡">
+        <div className="card-head"><b>핑거스타일 편곡 · {song.title}</b><button className="mini" onClick={onClose}>닫기</button></div>
+        <div className="chips">{FS_STYLES.map((s) => <button key={s.id} className={s.id === style ? 'chip on' : 'chip'} onClick={() => setStyle(s.id)}>{s.name}</button>)}</div>
+        {mel.errors.length > 0 && <p className="error">멜로디에서 못 읽은 글자: {mel.errors.slice(0, 5).join(' ')}</p>}
+        {Math.abs(melBeats - chordBeats) > 0.01 && <p className="hint">멜로디 {melBeats}박, 코드 {chordBeats}박 — 길이가 달라요. 마디 줄과 M| 줄 길이를 맞춰 주세요.</p>}
+        {arr.warnings.length > 0 && <p className="hint">{arr.warnings.slice(0, 3).join(' · ')}</p>}
+        <FsPlayer arr={arr} bpm={bpm} setBpm={(b) => setBpm(clampBpm(b))} target={tempo} />
+        <button className="primary" data-testid="arrange-save" onClick={async () => {
+          const st = FS_STYLES.find((x) => x.id === style)!;
+          await addSong(toSongText(arr, { title: `${song.title} (핑거스타일 ${style}단계)`, artist: song.artist, tempo, note: st.name }));
+          setSaved('새 곡으로 저장했어요. 목록에서 열 수 있어요.');
+        }}>탭을 새 곡으로 저장</button>
+        {saved && <p className="hint" role="status">{saved}</p>}
+      </div>
     </div>
   );
 }

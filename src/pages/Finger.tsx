@@ -20,13 +20,29 @@ import { localDate } from '../data/dates';
 import { clampBpm } from '../audio/schedule';
 import { LEVEL_NAMES, type Level } from '../data/settings';
 import { recordReview } from '../data/review';
+import { FingerstylePractice } from './Fingerstyle';
 
 type Pos = { bar: number; slot: number };
 const seq = new Sequencer<Pos>();
 
 export function FingerTab() {
-  const { settings, update } = useSettings();
   const req = useMemo(() => takeRequest('finger'), []);
+  const [mode, setMode] = useState<'arp' | 'fs'>(() => req?.mode ?? (localStorage.getItem('guitar-finger-mode') as 'arp' | 'fs') ?? 'fs');
+  const pick = (m: 'arp' | 'fs') => { setMode(m); try { localStorage.setItem('guitar-finger-mode', m); } catch { /* 무시 */ } };
+  if (req?.tuneId) { try { localStorage.setItem('guitar-fs-tune', req.tuneId); if (req.style) localStorage.setItem('guitar-fs-style', String(req.style)); } catch { /* 무시 */ } }
+  return (
+    <div className="page">
+      <div className="segmented">
+        <button className={mode === 'fs' ? 'on' : ''} onClick={() => pick('fs')}>핑거스타일</button>
+        <button className={mode === 'arp' ? 'on' : ''} onClick={() => pick('arp')}>아르페지오</button>
+      </div>
+      {mode === 'fs' ? <FingerstylePractice /> : <ArpeggioPractice req={req} />}
+    </div>
+  );
+}
+
+function ArpeggioPractice({ req }: { req: ReturnType<typeof takeRequest<'finger'>> }) {
+  const { settings, update } = useSettings();
   const tuning = tuningById(settings.tuningId).midi;
   const [pid, setPid] = useState(req?.patternId ?? localStorage.getItem('guitar-finger-pattern') ?? (settings.level === 3 ? 'travis' : 'pima'));
   const [chords, setChords] = useState<string[]>(req?.chords ?? JSON.parse(localStorage.getItem('guitar-finger-chords') ?? '["C","Am"]'));
@@ -51,9 +67,9 @@ export function FingerTab() {
   };
 
   return (
-    <div className="page">
+    <>
       <div className="card">
-        <div className="card-head"><b>패턴</b>
+        <div className="card-head"><b>아르페지오 패턴</b>
           <select value={level} onChange={(e) => update({ level: Number(e.target.value) as Level })} aria-label="단계">
             {([1, 2, 3] as Level[]).map((l) => <option key={l} value={l}>{LEVEL_NAMES[l]}</option>)}
           </select>
@@ -66,7 +82,7 @@ export function FingerTab() {
           ))}
           <button className="chip mine" onClick={() => setEditing('new')} data-testid="finger-new">＋ 내 패턴</button>
         </div>
-        <p className="hint">{pattern.tip}{pattern.custom && <> · <button className="link small" onClick={() => setEditing(pattern)}>고치기</button></>}</p>
+        <p className="hint">아르페지오: 코드 음을 정해진 손가락 순서로 뜯는 반주예요. 멜로디를 함께 치는 연습은 위 "핑거스타일"에서. {pattern.tip}{pattern.custom && <> · <button className="link small" onClick={() => setEditing(pattern)}>고치기</button></>}</p>
         {editing && <FingerPatternEditor initial={editing === 'new' ? undefined : editing} onClose={(id) => { setEditing(null); if (id) setPid(id); else if (!allPatterns().some((p) => p.id === pid)) setPid('pima'); }} />}
       </div>
       <div className="card">
@@ -95,7 +111,7 @@ export function FingerTab() {
           recordReview({ key: `finger:${pid}:${chords.join(' ')}`, kind: 'finger', label: `핑거 ${pattern.name} · ${chords.join(' ')}`, nav: { tab: 'finger', patternId: pid, chords }, note: `${bpmState} BPM · 친 음 ${Math.round(r.hitRate * 100)}%` }, ok);
           return { ok, up: next.bpm > prev.bpm, streak: next.streak };
         }} ladderStreak={ladder[pid]?.streak ?? 0} />
-    </div>
+    </>
   );
 }
 
