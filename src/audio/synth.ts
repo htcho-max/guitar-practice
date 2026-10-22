@@ -10,6 +10,7 @@ class GuitarSynth {
   private voices = new Map<number, { src: AudioBufferSourceNode; g: GainNode }>();
   private all = new Set<AudioBufferSourceNode>();
   private noise: AudioBuffer | null = null;
+  private pan: StereoPannerNode | null = null;
   a4 = 440;
   volume = 0.9;
 
@@ -31,9 +32,13 @@ class GuitarSynth {
     air.type = 'lowpass'; air.frequency.value = 7000;
     const comp = ctx.createDynamicsCompressor();
     comp.threshold.value = -10; comp.ratio.value = 4;
-    g.connect(body).connect(air).connect(comp).connect(ctx.destination);
+    const pan = ctx.createStereoPanner();
+    this.pan = pan;
+    g.connect(body).connect(air).connect(comp).connect(pan).connect(ctx.destination);
     this.bus = g;
   }
+  /** 좌우 (-1 왼쪽 … 1 오른쪽). 녹음과 겹쳐 들을 때 */
+  setPan(p: number) { if (this.pan) this.pan.pan.value = p; }
   setVolume(v: number) { this.volume = v; if (this.bus) this.bus.gain.value = v; }
 
   private buffer(midi: number, bright: number): AudioBuffer {
@@ -113,6 +118,12 @@ class GuitarSynth {
       osc.connect(og).connect(g);
       osc.start(t); osc.stop(t + 2.7);
     }
+  }
+  /** 엄지 슬랩: 낮은 줄이 프렛에 부딪히는 '짝' (줄 소리 멈춤) */
+  slap(when: number, vel = 0.8) {
+    this.choke(0, when); this.choke(1, when);
+    this.thump(when, vel * 0.9, 140, 0.07);
+    this.thump(when, vel * 0.7, 2600, 0.035);
   }
   /** 퍼커시브 히트: 몸통 '쿵' */
   hit(when: number, vel = 0.8) { this.thump(when, vel, 180, 0.09); }

@@ -6,7 +6,7 @@ import { useMic } from '../state/useMic';
 import { usePracticeTimer } from '../state/practice';
 import { useWakeLock } from '../state/wakeLock';
 import { CentsGauge } from '../components/Gauge';
-import { TUNINGS, tuningById, stringNo } from '../guitar/tunings';
+import { TUNINGS, tuningById, stringNo, tuningDiff } from '../guitar/tunings';
 import { centsBetween, freqToNote, midiToFreq, midiName, NOTE_NAMES_KO } from '../audio/notes';
 import { synth } from '../audio/synth';
 import { Metronome } from './Metronome';
@@ -26,7 +26,7 @@ export function TunerTab() {
         <button className={view === 'metronome' ? 'on' : ''} onClick={() => pick('metronome')}>메트로놈</button>
         <button className={view === 'fretboard' ? 'on' : ''} onClick={() => pick('fretboard')}>지판</button>
       </div>
-      {view === 'tuner' ? <Tuner /> : view === 'metronome' ? <Metronome /> : (
+      {view === 'tuner' ? <Tuner want={req?.tuningId} /> : view === 'metronome' ? <Metronome /> : (
         <>
           <div className="segmented small">
             <button className={sub === 'names' ? 'on' : ''} onClick={() => pickSub('names')}>음 이름 외우기</button>
@@ -39,9 +39,10 @@ export function TunerTab() {
   );
 }
 
-function Tuner() {
+function Tuner({ want }: { want?: string }) {
   const { settings, update } = useSettings();
   const tuning = tuningById(settings.tuningId);
+  const [guide, setGuide] = useState(() => (want && want !== settings.tuningId ? { from: tuning, to: tuningById(want) } : null));
   const { reading, on, error, start, stop } = useMic();
   const [locked, setLocked] = useState<number | null>(null); // 고른 줄 (null = 자동)
   const [done, setDone] = useState<Set<number>>(new Set());
@@ -72,6 +73,18 @@ function Tuner() {
   const far = cents !== null && Math.abs(cents) > 50;
   return (
     <>
+      {guide && (
+        <div className="card" data-testid="tuning-guide">
+          <b>{guide.to.name} 로 바꾸기</b>
+          <ul className="plain small">
+            {tuningDiff(guide.from.midi, guide.to.midi).map((d) => <li key={d.idx}>{stringNo(d.idx)}번 줄 {midiName(d.from)} → <b>{midiName(d.to)}</b> ({d.semis > 0 ? `반음 ${d.semis}개 올림 — 줄이 팽팽해지니 천천히` : `반음 ${-d.semis}개 내림`})</li>)}
+          </ul>
+          {settings.tuningId !== guide.to.id
+            ? <button className="primary" onClick={() => { update({ tuningId: guide.to.id }); setDone(new Set()); setLocked(null); }}>튜너를 이 조율로 맞추기</button>
+            : <p className="hint">튜너가 {guide.to.name} 에 맞춰졌어요. 바뀐 줄을 하나씩 튕겨 ✓ 를 받으세요. 끝나면 설정에서 표준으로 되돌릴 수 있어요.</p>}
+          <button className="link small" onClick={() => setGuide(null)}>닫기</button>
+        </div>
+      )}
       <div className={`tuner-display ${inTune ? 'in-tune' : ''}`}>
         <div className="note-sub">{target !== null ? `${stringNo(target)}번 줄 · ${midiName(tuning.midi[target])}` : on ? '줄을 하나 튕겨 보세요' : '마이크를 켜면 시작해요'}</div>
         <div className="note-big">{note ? note.name : '—'}<small className="muted">{note ? note.octave : ''}</small></div>

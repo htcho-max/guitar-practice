@@ -13,6 +13,10 @@ import { dueReviews, allReviews, onReviewChange, notifyReviews } from '../data/r
 import { weeklyMinutes, changeProgress, patternProgress } from '../data/trends';
 import type { ReviewRow } from '../data/db';
 import type { NavRequest } from '../state/navigate';
+import { loadBarStats, weakBars } from '../data/weakbars';
+import { parseSong } from '../song/parse';
+import { buildRoutine, type RoutineCand } from '../data/routine';
+import { startRoutine, useRoutine } from '../state/routine';
 
 const KIND_NAMES: Record<string, string> = { tuner: '튜닝', metronome: '메트로놈', chord: '코드 잡기', change: '코드 전환', strum: '스트럼', fretboard: '지판', fingerstyle: '핑거스타일', finger: '아르페지오', song: '곡' };
 
@@ -31,6 +35,9 @@ export function Today({ openSettings }: { openSettings: () => void }) {
   const [showTrend, setShowTrend] = useState(false);
   const [showReviews, setShowReviews] = useState(false);
   const [reviews, setReviews] = useState<ReviewRow[]>([]);
+  const [weakItems, setWeakItems] = useState<{ song: SongRow; bar: number; rate: number; beats: number }[]>([]);
+  const [routineMin, setRoutineMin] = useState(() => Number(localStorage.getItem('guitar-routine-min')) || 0);
+  const { run: routineRun } = useRoutine();
   const today = localDate();
   const load = () => {
     const from = addDays(today, -60);
@@ -44,6 +51,14 @@ export function Today({ openSettings }: { openSettings: () => void }) {
     allReviews().then((r) => { setReviewCount(r.length); setReviews(r.sort((a, b) => a.due.localeCompare(b.due))); });
     db.changes.toArray().then(setAllChanges).catch(() => {});
     db.fingerRuns.toArray().then(setAllRuns).catch(() => {});
+    db.songs.toArray().then(async (songs) => {
+      const out: { song: SongRow; bar: number; rate: number; beats: number }[] = [];
+      for (const s of songs) {
+        const w = weakBars(await loadBarStats(s.id), 2);
+        if (w.length) { const beats = parseSong(s.text).meta.beats; for (const x of w) out.push({ song: s, ...x, beats }); }
+      }
+      setWeakItems(out.sort((a, b) => b.rate - a.rate).slice(0, 3));
+    }).catch(() => {});
   };
   useEffect(() => { load(); const a = onPracticeSaved(load); const b = onReviewChange(load); return () => { a(); b(); }; }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -79,9 +94,24 @@ export function Today({ openSettings }: { openSettings: () => void }) {
     ...(level >= 4 ? [{ key: 'tech', title: '기법: 퍼커시브 · 하모닉스 · 레가토', sub: '하나씩 5분', go: () => navigate({ tab: 'finger', mode: 'tech' }) }] : []),
     { key: 'finger', title: `아르페지오: ${pat.name}`, sub: `${prog.chords.join(' – ')} · ${ladder[pat.id]?.bpm ?? pat.bpm[0]} BPM`, go: () => navigate({ tab: 'finger', mode: 'arp', patternId: pat.id, chords: prog.chords }) },
     ...(level >= 2 ? [{ key: 'fretboard', title: level === 2 ? '지판 음 이름 외우기' : '스케일 모양', sub: level === 2 ? '20문제 · 0~12프렛' : '펜타토닉 한 포지션 따라 치기', go: () => navigate({ tab: 'tuner', view: 'fretboard', sub: level === 2 ? 'names' : 'scales' }) }] : []),
+    ...weakItems.slice(0, 1).map((w) => ({ key: 'weak', title: `약한 마디: ${w.song.title} ${w.bar + 1}마디`, sub: `최근 ${Math.round(w.rate * 100)}% 놓침 · 느리게 반복`, go: () => navigate({ tab: 'song', songId: w.song.id, beats: [w.bar * w.beats, (w.bar + 1) * w.beats] }) })),
     { key: 'song', title: lastSong ? `곡: ${lastSong.title}` : '내 곡 넣기', sub: lastSong ? '이어서 연습' : '코드 악보·탭 붙여 넣기', go: () => navigate({ tab: 'song', songId: lastSong?.id }) },
   ];
   const recentRuns = runs.slice().sort((a, b) => b.at - a.at).slice(0, 4);
+  // 루틴 후보: 조율 → 기법 → 복습 → 코드 → 핑거스타일 → 지판 → 약한 마디 → 곡
+  const cands: RoutineCand[] = [
+    { key: 'tuner', title: '조율', nav: { tab: 'tuner', view: 'tuner' }, weight: 0, order: 0, fixedMin: 1 },
+    ...(level >= 3 ? [{ key: 'tech', title: '기법 손풀기', nav: { tab: 'finger', mode: 'tech' } as NavRequest, weight: level >= 4 ? 2 : 1, order: 1 }] : []),
+    ...due.slice(0, 2).map((r, i) => ({ key: `review${i}`, title: `복습: ${r.label}`, nav: r.nav as NavRequest, weight: 2, order: 2 })),
+    { key: 'change', title: `코드 전환 ${pair[0]} ↔ ${pair[1]}`, nav: { tab: 'chord', mode: 'change', pair }, weight: level <= 2 ? 3 : 1, order: 3 },
+    ...(level <= 3 ? [{ key: 'strum', title: `스트럼 ${strum.name}`, nav: { tab: 'chord', mode: 'strum', strumId: strum.id } as NavRequest, weight: level <= 2 ? 2 : 1, order: 3.5 }] : []),
+    { key: 'fs', title: `핑거스타일 ${fsTune.title} ${fsStyle}단계`, nav: { tab: 'finger', mode: 'fs', tuneId: fsTune.id, style: fsStyle }, weight: level >= 3 ? 3 : 2, order: 4 },
+    ...(level >= 2 ? [{ key: 'fret', title: level === 2 ? '지판 음 이름' : '스케일 모양', nav: { tab: 'tuner', view: 'fretboard', sub: level === 2 ? 'names' : 'scales' } as NavRequest, weight: 1, order: 5 }] : []),
+    ...weakItems.slice(0, 2).map((w, i) => ({ key: `weak${i}`, title: `약한 마디 ${w.song.title} ${w.bar + 1}마디`, nav: { tab: 'song', songId: w.song.id, beats: [w.bar * w.beats, (w.bar + 1) * w.beats] } as NavRequest, weight: 3, order: 6 })),
+    ...(lastSong ? [{ key: 'song', title: `곡 ${lastSong.title}`, nav: { tab: 'song', songId: lastSong.id } as NavRequest, weight: 3, order: 7 }] : []),
+  ];
+  const routine = routineMin ? buildRoutine(routineMin, cands) : [];
+  const pickMin = (m: number) => { setRoutineMin(m === routineMin ? 0 : m); try { localStorage.setItem('guitar-routine-min', String(m === routineMin ? 0 : m)); } catch { /* 무시 */ } };
 
   return (
     <div className="page">
@@ -109,6 +139,18 @@ export function Today({ openSettings }: { openSettings: () => void }) {
               </li>
             ))}
           </ul>
+        </div>
+      )}
+      {!routineRun && (
+        <div className="card routine-card" data-testid="routine-card">
+          <div className="card-head"><b>⏱ 시간 맞춤 루틴</b><span className="muted small">고른 시간만큼 순서대로 · 시간이 되면 다음으로</span></div>
+          <div className="chips">{[10, 20, 30, 45, 60].map((m) => <button key={m} className={routineMin === m ? 'chip on' : 'chip'} onClick={() => pickMin(m)}>{m}분</button>)}</div>
+          {routine.length > 0 && (
+            <>
+              <ol className="plain small routine-steps">{routine.map((s) => <li key={s.key}><span>{s.title}</span><b>{s.min}분</b></li>)}</ol>
+              <button className="primary" onClick={() => startRoutine(routine)} data-testid="routine-start">▶ 루틴 시작</button>
+            </>
+          )}
         </div>
       )}
       <h3>오늘 할 일</h3>

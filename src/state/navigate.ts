@@ -3,8 +3,8 @@ export type TabId = 'today' | 'chord' | 'finger' | 'song' | 'tuner';
 export type NavRequest =
   | { tab: 'chord'; mode: 'dict' | 'change' | 'strum'; chord?: string; pair?: [string, string]; strumId?: string }
   | { tab: 'finger'; mode?: 'arp' | 'fs' | 'tech'; patternId?: string; chords?: string[]; tuneId?: string; style?: number }
-  | { tab: 'song'; songId?: string; range?: [number, number] }
-  | { tab: 'tuner'; view?: 'tuner' | 'metronome' | 'fretboard'; sub?: 'names' | 'scales' }
+  | { tab: 'song'; songId?: string; range?: [number, number]; /** 박 구간 (약한 마디 집중) */ beats?: [number, number] }
+  | { tab: 'tuner'; view?: 'tuner' | 'metronome' | 'fretboard'; sub?: 'names' | 'scales'; tuningId?: string }
   | { tab: 'today' };
 
 let pending: NavRequest | null = null;

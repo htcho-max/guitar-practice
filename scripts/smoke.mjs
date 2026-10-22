@@ -152,6 +152,14 @@ try {
     await page.getByRole('button', { name: '하모닉스', exact: true }).click();
     await page.getByRole('button', { name: '7프렛' }).click();
     ok(await seen(page.getByTestId('harm-verdict')), '기법: 하모닉스');
+    await page.getByRole('button', { name: '인공', exact: true }).click();
+    ok(await seen(page.getByText(/오른손은 14프렛 위/)), '기법: 인공 하모닉스');
+    await page.getByRole('button', { name: '퍼커시브', exact: true }).click();
+    await page.getByRole('button', { name: '오른손 탭핑 + 슬랩' }).click();
+    ok(await seen(page.locator('.perc-cell', { hasText: '탭 12' })), '기법: 탭핑 + 슬랩 패턴');
+    await page.getByRole('button', { name: '▶ 들어 보기' }).click();
+    await page.waitForTimeout(800);
+    await page.getByRole('button', { name: '■ 정지' }).click();
     await page.getByRole('button', { name: '해머온·풀오프' }).click();
     ok(await seen(page.getByText(/5h7/)), '기법: 해머온');
     await shotTall(page, 'scripts/shot-technique.png');
@@ -236,6 +244,19 @@ try {
     ok(await seen(page.getByTestId('ab-compare')), 'A/B 비교');
     ok(await seen(page.locator('.wave rect'), 5000), '파형');
     await shotTall(page, 'scripts/shot-recordings.png');
+    // v0.7: 약한 마디 · 원곡과 겹쳐 듣기
+    ok(await seen(page.getByTestId('weak-bars'), 3000), '약한 마디 칩 (따라 치기 뒤)');
+    if (await page.getByTestId('weak-bars').count()) {
+      await page.getByTestId('weak-bars').locator('.chip').first().click();
+      ok(await seen(page.locator('.focus-tag')), '약한 마디 집중 (반복 구간)');
+      await page.screenshot({ path: 'scripts/shot-weak-focus.png' });
+      await page.locator('.range-row').getByRole('button', { name: '전체로' }).click();
+    }
+    ok(await seen(page.getByTestId('rec-overlay')), '녹음: 원곡과 겹쳐 듣기 버튼');
+    await page.getByTestId('rec-overlay').first().click();
+    await page.waitForTimeout(1500);
+    ok(await seen(page.getByRole('button', { name: '■ 정지' })), '겹쳐 듣기 재생 중');
+    await page.getByRole('button', { name: '■ 정지' }).click();
     await page.getByRole('button', { name: '목록으로' }).click();
     // 멜로디 있는 곡 → 핑거스타일 편곡 → 새 곡으로 저장
     await page.getByRole('button', { name: /반짝반짝 작은 별 \(멜로디 포함\)/ }).click();
@@ -254,6 +275,26 @@ try {
     await page.waitForTimeout(3000);
     ok(await seen(page.locator('.sb-tab-now')), '편곡한 곡 재생');
     await page.getByRole('button', { name: '■ 정지' }).click();
+    // v0.7: 손 위치 지도 · 탭 고치기
+    ok(await seen(page.getByTestId('pos-map')), '손 위치 지도');
+    await page.getByTestId('pos-map').locator('.card-head').click();
+    ok(await seen(page.locator('.pos-cell')), '마디별 손 위치');
+    await page.getByTestId('tab-edit').click();
+    ok(await seen(page.locator('.te-col')), '탭 고치기: 칸 목록');
+    const before = await page.locator('.te-col').count();
+    await page.locator('.te-col').first().click();
+    ok(await seen(page.getByRole('dialog', { name: '탭 칸 고치기' })), '칸 고치기 창');
+    await page.getByLabel('1번 줄 프렛').fill('12');
+    await page.getByLabel('1번 줄 기법').selectOption('harm');
+    await page.getByTestId('te-apply').click();
+    await page.locator('.te-col').nth(1).click();
+    await page.getByRole('button', { name: '둘로 나누기' }).click();
+    ok((await page.locator('.te-col').count()) === before + 1, '칸 둘로 나누기');
+    await page.getByTestId('tab-save').first().click();
+    await page.waitForTimeout(400);
+    await page.getByTestId('tab-edit').click();
+    ok(await seen(page.locator('.sb-tab', { hasText: '<12>' })), '고친 탭이 곡에 저장 (<12>)');
+    await shotTall(page, 'scripts/shot-tab-edit.png');
     await page.getByRole('button', { name: '목록으로' }).click();
     // MusicXML 리드시트 불러오기 → 편곡 (하이 포지션)
     await page.getByTestId('song-file').setInputFiles('scripts/test-leadsheet.musicxml');
@@ -263,10 +304,29 @@ try {
     await page.getByTestId('arrange-open').click();
     await page.getByRole('dialog').getByRole('button', { name: '옥타브 위 (하이 포지션)' }).click();
     ok(await seen(page.locator('.sheet svg.fs-bar')), 'MusicXML 곡 편곡');
+    // v0.7: 7단계 + DADGAD 로 저장 → 곡에서 조율 안내 → 튜너
+    await page.getByRole('dialog').getByRole('button', { name: /7단계/ }).click();
+    await page.getByLabel('편곡 조율').selectOption('dadgad');
+    ok(await seen(page.locator('.sheet .fs-perc', { hasText: 'S' })), '7단계: 슬랩 표시');
+    await page.screenshot({ path: 'scripts/shot-arrange7.png' });
+    await page.getByTestId('arrange-save').click();
     await page.getByRole('dialog').getByRole('button', { name: '닫기' }).click();
     await page.getByRole('button', { name: '목록으로' }).click();
+    await page.getByRole('button', { name: /7단계.*DADGAD/ }).click();
+    ok(await seen(page.getByTestId('song-tuning')), '곡 조율 안내 (DADGAD)');
+    await page.getByTestId('song-tuning').getByRole('button').click();
+    ok(await seen(page.getByTestId('tuning-guide')), '튜너: 바꿀 줄 안내');
+    ok(await seen(page.getByText(/6번 줄 E2 → /)), '6번 줄 E → D');
+    await page.getByTestId('tuning-guide').getByRole('button', { name: '튜너를 이 조율로 맞추기' }).click();
+    ok(await seen(page.getByText(/튜너가 DADGAD 에 맞춰졌어요/)), '튜너 조율 바꿈');
+    await page.screenshot({ path: 'scripts/shot-tuning-guide.png' });
+    await page.locator('.tuner-display').waitFor();
+    await page.locator('select').filter({ hasText: '표준' }).last().selectOption('std');
+    await tab(page, '내 곡');
     // 새 곡 붙여 넣기
     await page.getByRole('button', { name: '＋ 새 곡' }).click();
+    await page.getByTestId('photo-prompt').click();
+    ok(await seen(page.getByRole('button', { name: '요청 글 복사' })), '사진 악보 요청 글');
     await page.getByTestId('song-textarea').fill('{title: 시험 곡}\n{capo: 1}\nAm      F\n그대 내게 행복을\n| C . G . | Am |');
     ok(await seen(page.getByText(/코드 \d+개/)), '편집기: 알아본 코드 수');
     await page.getByRole('button', { name: '저장' }).click();
@@ -291,8 +351,23 @@ try {
     ok(await seen(page.getByTestId('trends')), '주별 추이 열기');
     ok(await seen(page.getByText('패턴 템포 (처음 → 통과한 최고)')), '패턴 발전 기록');
     await shotTall(page, 'scripts/shot-today-trends.png');
+    // v0.7: 시간 맞춤 루틴
+    await page.getByTestId('routine-card').getByRole('button', { name: '20분' }).click();
+    ok((await page.locator('.routine-steps li').count()) >= 3, '20분 루틴 단계');
+    await shotTall(page, 'scripts/shot-routine.png');
+    await page.getByTestId('routine-start').click();
+    ok(await seen(page.getByTestId('routine-bar')), '루틴 진행 막대');
+    ok(await seen(page.locator('.tuner-display')), '루틴 1단계: 튜너로 이동');
+    await page.getByTestId('routine-bar').getByRole('button', { name: '다음 단계' }).click();
+    ok(await seen(page.locator('.routine-n', { hasText: '2/' })), '루틴 다음 단계');
+    await page.screenshot({ path: 'scripts/shot-routine-bar.png' });
+    page.once('dialog', (d) => d.accept());
+    await page.getByTestId('routine-bar').getByRole('button', { name: '루틴 그만' }).click();
+    ok(!(await seen(page.getByTestId('routine-bar'), 800)), '루틴 그만');
+    await tab(page, '오늘');
     await page.getByRole('button', { name: '설정' }).click();
     ok(await seen(page.getByRole('dialog', { name: '설정' })), '설정 열기');
+    await page.getByLabel('박 소리').selectOption('bass');
     await page.screenshot({ path: 'scripts/shot-settings.png' });
     ok(errors.length === 0, `콘솔 오류 없음 ${errors.slice(0, 3).join(' | ')}`);
     await browser.close();

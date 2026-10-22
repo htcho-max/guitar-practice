@@ -12,6 +12,7 @@ import { onNavigate, type TabId } from './state/navigate';
 import { useMetronomeRunning } from './state/useMetronome';
 import { metronome } from './audio/metronome';
 import { loadCustomPatterns } from './state/customPatterns';
+import { RoutineBar } from './components/RoutineBar';
 
 const TITLES: Record<TabId, string> = { today: '오늘의 연습', chord: '코드', finger: '핑거스타일', song: '내 곡', tuner: '튜너 · 지판' };
 
@@ -40,6 +41,7 @@ export function App({ updatedFrom = null }: { updatedFrom?: string | null }) {
   return (
     <div className="app">
       <header className="topbar"><h1>{TITLES[showTab]}</h1>{showTab !== 'today' && <button className="mini" onClick={() => setSettingsOpen(true)} aria-label="설정">⚙</button>}</header>
+      {settings.level && <RoutineBar />}
       {metroOn && showTab !== 'tuner' && (
         <div className="statusbar"><span className="status-chip">메트로놈 {settings.bpm} <button className="mini" onClick={() => metronome.stop()} aria-label="메트로놈 정지">■</button></span></div>
       )}

@@ -56,6 +56,12 @@ export function SettingsSheet({ onClose }: { onClose: () => void }) {
           <button className="mini" onClick={() => update({ goalMin: Math.min(180, settings.goalMin + 5) })}>+</button>
         </div>
         <div className="row-setting">
+          <span>박 소리</span>
+          <select value={settings.backing} onChange={(e) => update({ backing: e.target.value as 'click' | 'drums' | 'bass' })} aria-label="박 소리">
+            <option value="click">클릭</option><option value="drums">드럼</option><option value="bass">드럼 + 베이스</option>
+          </select>
+        </div>
+        <div className="row-setting">
           <span>조율</span>
           <select value={settings.tuningId} onChange={(e) => update({ tuningId: e.target.value })}>{TUNINGS.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</select>
         </div>

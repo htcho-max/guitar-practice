@@ -35,10 +35,10 @@ function FsBar({ events, from, beats, chords, now, marks, hide, n }: { events: F
           {e.notes.map((nt) => (hide?.has(nt.voice) ? null : (
             <g key={nt.string}>
               <rect x={x(e.beat) - 7} y={y(nt.string) - 6} width={14} height={12} className="tab-num-bg" />
-              <text x={x(e.beat)} y={y(nt.string) + 4} textAnchor="middle" className={`tab-num fs-${nt.voice} ${nt.harm ? 'fs-harm' : ''}`}>{nt.harm ? `<${nt.fret}>` : nt.fret}</text>
+              <text x={x(e.beat)} y={y(nt.string) + 4} textAnchor="middle" className={`tab-num fs-${nt.voice} ${nt.harm ? 'fs-harm' : ''}`}>{nt.harm ? `<${nt.fret}>` : nt.art ? `[${nt.fret}]` : nt.fret}</text>
             </g>
           )))}
-          {e.perc && !hide?.has('perc') && <text x={x(e.beat)} y={y(0.5) + 4} textAnchor="middle" className="tab-hit fs-perc">✕</text>}
+          {e.perc && !hide?.has('perc') && <text x={x(e.beat)} y={y(0.5) + 4} textAnchor="middle" className="tab-hit fs-perc">{e.slap ? 'S' : '✕'}</text>}
           {marks?.get(e.beat) && <circle cx={x(e.beat)} cy={H - 6} r={3} className={`tab-mark ${marks.get(e.beat)}`} />}
         </g>
       ))}

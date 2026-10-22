@@ -1,19 +1,22 @@
+import { tuningFromText } from '../guitar/tunings';
 import { isChordToken } from '../guitar/symbols';
 
 export interface Seg { chord?: string; text: string }
-export interface TabNote { string: number; fret: number; tech?: string; dead?: boolean; /** <12> 자연 하모닉스 */ harm?: boolean }
+export interface TabNote { string: number; fret: number; tech?: string; dead?: boolean; /** <12> 자연 하모닉스 */ harm?: boolean; /** [7] 인공 하모닉스 (짚은 음 + 12) */ art?: boolean; /** t12 오른손 탭핑 */ tap?: boolean; /** S 엄지 슬랩 */ slap?: boolean }
 export interface TabEvent { beat: number; notes: TabNote[]; /** 원래 줄에서 글자 위치 (화면 표시) */ col: number }
 export type Block =
   | { kind: 'section'; label: string }
   | { kind: 'comment'; text: string }
   | { kind: 'line'; segs: Seg[] }
   | { kind: 'bars'; bars: string[][] }
-  | { kind: 'tab'; lines: string[]; events: TabEvent[]; beats: number; /** 리듬 줄 (있으면) */ rhythm?: string }
+  | { kind: 'tab'; lines: string[]; events: TabEvent[]; beats: number; /** 리듬 줄 (있으면) */ rhythm?: string; /** 원래 글에서 줄 범위 [시작, 끝) — 고치기용 */ src?: [number, number] }
   | { kind: 'melody'; text: string }
   | { kind: 'empty' };
 
 export interface SongMeta {
   title: string; artist: string; key: string; capo: number; tempo: number;
+  /** 조율 id ('' = 설정 따름) */
+  tuning: string;
   beats: number; unit: number;
   /** 긁기 패턴 (D U - x, 한 마디) */
   strum: string;
@@ -105,15 +108,17 @@ function parseBars(line: string): string[][] {
 const isBarsLine = (line: string) => /^\s*\|/.test(line) && !TAB_LABELED.test(line) && parseBars(line).every((b) => b.every((t) => t === '.' || t === '/' || t === '%' || isChordToken(t)));
 
 export function parseSong(text: string): ParsedSong {
-  const meta: SongMeta = { title: '', artist: '', key: '', capo: 0, tempo: 0, beats: 4, unit: 4, strum: '', finger: '', chordBeats: 0 };
+  const meta: SongMeta = { title: '', artist: '', key: '', capo: 0, tempo: 0, tuning: '', beats: 4, unit: 4, strum: '', finger: '', chordBeats: 0 };
   const blocks: Block[] = [];
   const lines = text.replace(/\r\n?/g, '\n').split('\n');
   let inTab = false;
   let tabBuf: string[] = [];
+  let tabIdx: number[] = [];
   const flushTab = () => {
     if (!tabBuf.length) return;
-    for (const g of splitTabGroups(tabBuf)) blocks.push(parseTab(g.lines, meta.beats, g.rhythm));
+    for (const g of splitTabGroups(tabBuf, tabIdx)) blocks.push({ ...parseTab(g.lines, meta.beats, g.rhythm), src: [g.start, g.end] });
     tabBuf = [];
+    tabIdx = [];
   };
   for (let i = 0; i < lines.length; i++) {
     const raw = lines[i];
@@ -126,6 +131,7 @@ export function parseSong(text: string): ParsedSong {
       if (key === 't' || key === 'title') meta.title = val;
       else if (key === 'st' || key === 'subtitle' || key === 'artist' || key === 'a') meta.artist = val;
       else if (key === 'key' || key === 'k') meta.key = val;
+      else if (key === 'tuning') meta.tuning = tuningFromText(val) ?? '';
       else if (key === 'capo') meta.capo = Math.max(0, Math.min(12, parseInt(val) || 0));
       else if (key === 'tempo' || key === 'bpm') meta.tempo = Math.max(30, Math.min(250, parseInt(val) || 0));
       else if (key === 'time') { const m = /(\d+)\s*\/\s*(\d+)/.exec(val); if (m) { meta.beats = +m[1]; meta.unit = +m[2]; } }
@@ -141,8 +147,8 @@ export function parseSong(text: string): ParsedSong {
     }
     // 탭 (6줄 묶음) — {sot} 없이도 알아봄
     const looksTab = TAB_LABELED.test(line) || (inTab && TAB_LINE.test(line) && line.includes('-'));
-    if (looksTab) { tabBuf.push(line); continue; }
-    if (RHYTHM_LINE.test(line) && /[|:]\s*[-whqestT.\s|]+$/.test(line) && TAB_LABELED.test(lines[i + 1] ?? '')) { tabBuf.push(line); continue; }
+    if (looksTab) { tabBuf.push(line); tabIdx.push(i); continue; }
+    if (RHYTHM_LINE.test(line) && /[|:]\s*[-whqestT.\s|]+$/.test(line) && TAB_LABELED.test(lines[i + 1] ?? '')) { tabBuf.push(line); tabIdx.push(i); continue; }
     if (inTab && !line.trim()) { flushTab(); continue; }
     flushTab();
     if (!line.trim()) { if (blocks.length && blocks[blocks.length - 1].kind !== 'empty') blocks.push({ kind: 'empty' }); continue; }
@@ -173,16 +179,22 @@ export function parseSong(text: string): ParsedSong {
 }
 
 /** 탭 줄을 6줄씩 (리듬 줄은 다음 묶음에 붙임) */
-function splitTabGroups(lines: string[]): { lines: string[]; rhythm?: string }[] {
-  const out: { lines: string[]; rhythm?: string }[] = [];
+function splitTabGroups(lines: string[], idx: number[]): { lines: string[]; rhythm?: string; start: number; end: number }[] {
+  const out: { lines: string[]; rhythm?: string; start: number; end: number }[] = [];
   let cur: string[] = [];
   let rhythm: string | undefined;
-  for (const l of lines) {
-    if (RHYTHM_LINE.test(l)) { if (cur.length) { out.push({ lines: cur, rhythm }); cur = []; } rhythm = l; continue; }
+  let start = idx[0] ?? 0;
+  lines.forEach((l, k) => {
+    if (RHYTHM_LINE.test(l)) {
+      if (cur.length) { out.push({ lines: cur, rhythm, start, end: idx[k - 1] + 1 }); cur = []; }
+      rhythm = l; start = idx[k];
+      return;
+    }
+    if (!cur.length && rhythm === undefined) start = idx[k];
     cur.push(l);
-    if (cur.length === 6) { out.push({ lines: cur, rhythm }); cur = []; rhythm = undefined; }
-  }
-  if (cur.length) out.push({ lines: cur, rhythm });
+    if (cur.length === 6) { out.push({ lines: cur, rhythm, start, end: idx[k] + 1 }); cur = []; rhythm = undefined; }
+  });
+  if (cur.length) out.push({ lines: cur, rhythm, start, end: idx[idx.length - 1] + 1 });
   return out;
 }
 
@@ -223,8 +235,12 @@ export function parseTab(lines: string[], beatsPerBar = 4, rhythm?: string): Blo
         const prev = row[c - 1];
         if (prev && /[hpb/\\~r]/.test(prev)) note.tech = prev;
         if (prev === '<') note.harm = true;
+        if (prev === '[') note.art = true;
+        if (prev === 't' || prev === 'T') note.tap = true;
       } else if (ch === 'x' || ch === 'X') {
         note = { string, fret: 0, dead: true };
+      } else if (ch === 'S') {
+        note = { string, fret: 0, dead: true, slap: true };
       }
       if (!note) continue;
       // 레가토(h p / \)로 이어진 음도 따로 침으로 셈 (소리는 같음)

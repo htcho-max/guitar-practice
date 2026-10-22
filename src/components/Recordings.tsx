@@ -14,7 +14,7 @@ function Wave({ peaks, pos, onSeek, cls }: { peaks?: number[]; pos: number; onSe
 }
 
 /** 곡의 내 녹음: 파형, 듣기, A/B 비교, 이름 바꾸기, 내려받기, 지우기 */
-export function Recordings({ songId, tick }: { songId: string; tick: number }) {
+export function Recordings({ songId, tick, onOverlay }: { songId: string; tick: number; onOverlay?: (r: RecordingRow) => void }) {
   const [rows, setRows] = useState<RecordingRow[]>([]);
   const [urls, setUrls] = useState<Record<number, string>>({});
   const [pick, setPick] = useState<number[]>([]);
@@ -55,6 +55,7 @@ export function Recordings({ songId, tick }: { songId: string; tick: number }) {
   return (
     <div className="card">
       <div className="card-head"><b>내 녹음</b><span className="muted small">{rows.length}개 · 두 개를 골라 A/B 로 비교</span></div>
+      {onOverlay && rows.some((r) => r.sync) && <p className="hint small">🎧 겹쳐 듣기: 왼쪽 = 내 연주, 오른쪽 = 앱 원곡. 이어폰으로 들으면 어디서 박이 밀리는지 바로 들려요.</p>}
       {picked.length === 2 && (
         <div className="ab-box" data-testid="ab-compare">
           {picked.map((r, k) => (
@@ -80,6 +81,7 @@ export function Recordings({ songId, tick }: { songId: string; tick: number }) {
             <audio ref={(el) => { audios.current[r.id!] = el; }} controls preload="metadata" src={urlOf(r)}
               onTimeUpdate={(e) => { const a = e.currentTarget; if (a.duration) setPos((p) => ({ ...p, [r.id!]: a.currentTime / a.duration })); }} />
             <div className="row-setting small">
+              {r.sync && onOverlay && <button className="link" onClick={() => { pauseAll(); onOverlay(r); }} data-testid="rec-overlay">🎧 원곡과 겹쳐 듣기</button>}
               <a className="link" href={urlOf(r)} download={`녹음-${r.date}-${r.id}.${r.mime.includes('mp4') ? 'm4a' : r.mime.includes('ogg') ? 'ogg' : 'webm'}`}>내려받기</a>
               <button className="link danger" onClick={async () => { if (confirm('이 녹음을 지울까요?')) { await db.recordings.delete(r.id!); setPick((p) => p.filter((x) => x !== r.id)); load(); } }}>지우기</button>
             </div>

@@ -35,7 +35,9 @@ export interface ReviewRow {
   note: string;
 }
 /** 내 연주 녹음 */
-export interface RecordingRow { id?: number; songId: string; label: string; date: string; at: number; sec: number; mime: string; blob: Blob; /** 파형 (0~1, 160개) — 처음 볼 때 만들어 둠 */ peaks?: number[] }
+export interface RecordingRow { id?: number; songId: string; label: string; date: string; at: number; sec: number; mime: string; blob: Blob; /** 파형 (0~1, 160개) — 처음 볼 때 만들어 둠 */ peaks?: number[];
+  /** 원곡과 겹쳐 듣기: 녹음 시작부터 0박까지 초, 템포, 곡 박 구간 */
+  sync?: { t0: number; bpm: number; from: number; to: number } }
 
 class GuitarDB extends Dexie {
   practice!: Table<PracticeRow, string>;

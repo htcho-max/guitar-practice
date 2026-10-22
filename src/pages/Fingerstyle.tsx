@@ -5,6 +5,7 @@ import { arrange, chordSpans, FS_STYLES, type Arrangement, type FsStyle, type Oc
 import { tuningById } from '../guitar/tunings';
 import { toSongText } from '../fingerstyle/ascii';
 import { FsBars, type FsMark } from '../components/FsBars';
+import { PositionMap } from '../components/PositionMap';
 import { matchRun, type Expected, type Heard, type RunResult } from '../finger/score';
 import { containsNote } from '../audio/onset';
 import { Sequencer } from '../audio/sequencer';
@@ -51,10 +52,10 @@ export function FsPlayer({ arr, bpm, setBpm, target, onResult }: { arr: Arrangem
     await synth.ready();
     const evs = arr.events.map((e, i) => ({
       beat: e.beat, data: i,
-      play: (_c: AudioContext, w: number) => { e.notes.forEach((n) => { if (hide.has(n.voice)) return; if (n.harm) synth.harm(n.midi, w, 0.9, n.string); else synth.note(n.midi, w, n.voice === 'mel' ? 0.95 : n.voice === 'bass' ? 0.6 : 0.45, n.string, n.voice === 'mel' ? 0.7 : 0.45); }); if (e.perc && !hide.has('perc')) synth.hit(w, 0.9); },
+      play: (_c: AudioContext, w: number) => { e.notes.forEach((n) => { if (hide.has(n.voice)) return; if (n.harm || n.art) synth.harm(n.midi, w, 0.9, n.string); else synth.note(n.midi, w, n.voice === 'mel' ? 0.95 : n.voice === 'bass' ? 0.6 : 0.45, n.string, n.voice === 'mel' ? 0.7 : 0.45); }); if (e.perc && !hide.has('perc')) { if (e.slap) synth.slap(w, 0.9); else synth.hit(w, 0.9); } },
     }));
     await seq.start(evs, {
-      bpm, ...(loop ? { loopBeats: arr.beats } : { endBeats: arr.beats }), meterBeats: arr.beatsPerBar, countIn: 0, click: false,
+      bpm, ...(loop ? { loopBeats: arr.beats } : { endBeats: arr.beats }), meterBeats: arr.beatsPerBar, countIn: 0, click: settings.backing !== 'click', ...(settings.backing !== 'click' ? { backing: 'drums' as const, clickVolume: settings.clickVolume * 0.7 } : {}),
       onEvent: (e) => setNow(arr.events[e.data!].beat), onEnd: () => { setMode('idle'); setNow(null); },
     });
     setMode('listen');
@@ -66,7 +67,7 @@ export function FsPlayer({ arr, bpm, setBpm, target, onResult }: { arr: Arrangem
     const off = mic.subscribeOnset((o) => heard.current.push({ time: o.time, chroma: o.chroma }));
     await seq.start(arr.events.map((e, i) => ({ beat: e.beat, data: i })), {
       bpm, endBeats: arr.beats, meterBeats: arr.beatsPerBar, countIn: arr.beatsPerBar, click: true,
-      clickSound: settings.clickSound, clickVolume: settings.clickVolume,
+      clickSound: settings.clickSound, clickVolume: settings.clickVolume, ...(settings.backing !== 'click' ? { backing: 'drums' as const } : {}),
       onEvent: (e) => setNow(arr.events[e.data!].beat),
       onBeat: (b) => setCount(b < 0 ? -b : null),
       onEnd: () => setTimeout(() => {
@@ -108,6 +109,7 @@ export function FsPlayer({ arr, bpm, setBpm, target, onResult }: { arr: Arrangem
         ))}
       </div>
       <FsBars arr={arr} now={now} marks={res?.marks} hide={hide} />
+      <PositionMap events={arr.events} beatsPerBar={arr.beatsPerBar} bars={arr.beats / arr.beatsPerBar} />
       {count !== null && <div className="count-in">{count}</div>}
       <div className="row-setting">
         <span>템포</span>

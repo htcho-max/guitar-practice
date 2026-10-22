@@ -31,11 +31,14 @@ export function TechniquePractice() {
 }
 
 // ── 퍼커시브 ──
-type PercTok = 'B' | 'x' | 'M' | '-';
+/** B 엄지 베이스 · M 멜로디 · x 몸통 · S 엄지 슬랩 · R 손톱 브러시 · T 오른손 탭핑 */
+type PercTok = 'B' | 'x' | 'M' | 'S' | 'R' | 'T' | '-';
 const PERC: { id: string; name: string; seq: PercTok[]; sub: number; tip: string }[] = [
   { id: 'bx', name: '베이스 · 몸통 (4분)', seq: ['B', 'x', 'B', 'x'], sub: 1, tip: 'B = 엄지로 6번 줄 개방, x = 2·4박에 오른손 손바닥(엄지 아래 두툼한 곳)으로 줄 위 몸통 쪽을 탁. 줄 소리가 같이 죽어야 스네어처럼 들려요.' },
   { id: 'bxm', name: '베이스 · 몸통 · 멜로디 (8분)', seq: ['B', 'M', 'x', 'M', 'B', 'M', 'x', 'M'], sub: 2, tip: 'M = 엇박에 a 또는 m 으로 1번 줄. 몸통 치기 뒤에도 멜로디가 끊기지 않게, 손바닥만 줄에서 빨리 떼요.' },
-  { id: 'slap', name: '엄지 슬랩 (16분 느낌)', seq: ['B', '-', 'M', 'x', '-', 'M', 'B', '-'], sub: 2, tip: 'x 를 엄지 옆면으로 5·6번 줄을 내려치는 슬랩으로 바꿔 보세요. 손목을 털듯이, 줄을 치고 바로 튕겨 나오기.' },
+  { id: 'slap', name: '엄지 슬랩', seq: ['B', 'M', 'S', 'M', 'B', 'M', 'S', 'M'], sub: 2, tip: 'S = 엄지 옆면(첫 마디)으로 5·6번 줄을 프렛 쪽으로 내려쳐 "짝" 소리. 손목을 털듯이 치고 바로 튕겨 나와야 다음 멜로디가 살아요.', },
+  { id: 'brush', name: '손톱 브러시 (스트럼 대신)', seq: ['B', '-', 'R', 'M', 'B', 'M', 'R', '-'], sub: 2, tip: 'R = i(검지) 손톱 등으로 1~4번 줄을 빠르게 내려 쓸기. 손가락만 펴듯이, 팔은 움직이지 않아요. 브러시 뒤 멜로디는 a 로.' },
+  { id: 'tap', name: '오른손 탭핑 + 슬랩', seq: ['B', 'T', 'S', 'T', 'B', 'T', 'S', 'T'], sub: 2, tip: 'T = 오른손 검지나 중지로 1번 줄 12프렛을 망치처럼 두드리고 살짝 끌어내리며 떼기(풀오프). 왼손은 개방 줄. 엄지 베이스·슬랩과 번갈아.' },
 ];
 
 function PercDrill() {
@@ -54,7 +57,7 @@ function PercDrill() {
   useEffect(() => () => { seq.stop(); synth.stopAll(); }, [seq]);
   const evs = (sound: boolean) => Array.from({ length: bars }, (_, b) => p.seq.map((t, i) => ({ t, beat: b * (p.seq.length / p.sub) + i / p.sub, i }))).flat()
     .filter((e) => e.t !== '-')
-    .map((e) => ({ beat: e.beat, data: e.i, play: sound ? (_c: AudioContext, w: number) => { if (e.t === 'B') synth.note(40, w, 0.8, 0); else if (e.t === 'M') synth.note(64, w, 0.6, 5); else synth.hit(w, 1); } : undefined, t: e.t }));
+    .map((e) => ({ beat: e.beat, data: e.i, play: sound ? (_c: AudioContext, w: number) => { if (e.t === 'B') synth.note(40, w, 0.8, 0); else if (e.t === 'M') synth.note(64, w, 0.6, 5); else if (e.t === 'T') synth.note(76, w, 0.6, 5, 0.4); else if (e.t === 'R') synth.strum([null, null, 50, 55, 59, 64], w, 'down', 0.55, 0.008); else if (e.t === 'S') synth.slap(w, 1); else synth.hit(w, 1); } : undefined, t: e.t }));
   const beatsTotal = bars * (p.seq.length / p.sub);
   async function listen() {
     setRes(null); await synth.ready();
@@ -77,7 +80,7 @@ function PercDrill() {
         let kindN = 0, kindOk = 0;
         const marks = r.steps.map((s, k) => {
           if (!s.heard) return 'miss';
-          const want = list[k].t === 'x' ? 'perc' : 'tone';
+          const want = list[k].t === 'x' || list[k].t === 'S' ? 'perc' : 'tone';
           const tone = (s.heard as Heard & { tone: number }).tone;
           const got = tone < 0.78 ? 'perc' : 'tone';
           kindN++; if (got === want) kindOk++;
@@ -100,7 +103,7 @@ function PercDrill() {
       <div className="perc-row">
         {p.seq.map((t, i) => (
           <span key={i} className={`perc-cell ${i % p.sub === 0 ? 'beat' : ''} ${now === i ? 'now' : ''} ${res?.marks[i] ?? ''}`}>
-            <b>{t === 'B' ? '엄지' : t === 'M' ? '멜로디' : t === 'x' ? '✕' : '·'}</b>
+            <b>{t === 'B' ? '엄지' : t === 'M' ? '멜로디' : t === 'x' ? '✕' : t === 'S' ? '슬랩' : t === 'R' ? '브러시' : t === 'T' ? '탭 12' : '·'}</b>
           </span>
         ))}
       </div>
@@ -124,19 +127,24 @@ function PercDrill() {
 }
 
 // ── 하모닉스 ──
-const HARM_FRETS = [12, 7, 5];
+const HARM_FRETS = [12, 7, 5, 0];
 function HarmDrill() {
   const { settings } = useSettings();
   const tuning = tuningById(settings.tuningId).midi;
   const [fret, setFret] = useState(12);
+  /** fret = 0 → 인공 하모닉스: art 프렛을 누르고 +12 에서 */
+  const [art, setArt] = useState(2);
+  const isArt = fret === 0;
   const [s, setS] = useState(5);
   const [state, setState] = useState<{ verdict: 'ok' | 'pressed' | 'muted' | 'other' | null; heard?: string; ring?: number }>({ verdict: null });
   const [log, setLog] = useState<Record<string, boolean>>({});
   const { reading, on, start, stop, error } = useMic();
   const st = useRef({ armed: false, since: 0, judged: false, okAt: 0, n: 0, last: 0 });
   usePracticeTimer('fingerstyle', on);
-  const target = tuning[s] + HARM_SEMIS[fret];
-  const pressed = tuning[s] + fret;
+  const target = isArt ? tuning[s] + art + 12 : tuning[s] + HARM_SEMIS[fret];
+  const pressed = isArt ? tuning[s] + art : tuning[s] + fret;
+  const logKey = (i: number) => (isArt ? `${i}:a${art}` : `${i}:${fret}`);
+  const label = isArt ? `[${art}]` : `<${fret}>`;
   useEffect(() => {
     if (!on) return;
     return mic.subscribeOnset((o) => { st.current = { armed: true, since: o.time, judged: false, okAt: 0, n: 0, last: 0 }; setState({ verdict: null }); });
@@ -158,8 +166,8 @@ function HarmDrill() {
       if (v === 'ok') c.okAt = reading.time;
       else c.armed = false;
       setState({ verdict: v, heard: midiName(m) });
-      setLog((l) => ({ ...l, [`${s}:${fret}`]: v === 'ok' || !!l[`${s}:${fret}`] }));
-      if (v === 'ok') recordReview({ key: 'tech:harm', kind: 'finger', label: '하모닉스 연습', nav: { tab: 'finger', mode: 'tech' }, note: `${stringNo(s)}번 줄 ${fret}프렛` }, true);
+      setLog((l) => ({ ...l, [logKey(s)]: v === 'ok' || !!l[logKey(s)] }));
+      if (v === 'ok') recordReview({ key: isArt ? 'tech:art' : 'tech:harm', kind: 'finger', label: isArt ? '인공 하모닉스 연습' : '하모닉스 연습', nav: { tab: 'finger', mode: 'tech' }, note: `${stringNo(s)}번 줄 ${label}` }, true);
     } else if (reading.time - c.since > 1.0) {
       c.judged = true; c.armed = false;
       setState({ verdict: 'muted' });
@@ -168,17 +176,18 @@ function HarmDrill() {
   const done = Object.values(log).filter(Boolean).length;
   return (
     <div className="card">
-      <p className="hint">{fret === 12 ? '12프렛은 눌러도 같은 음이라 맑게 울리는지만 봐요 — 7·5프렛에서 누름/하모닉스를 정확히 구별해요. ' : ''}줄 위, 프렛 쇠 <b>바로 위</b>에 왼손가락을 살짝 대기만 하고(누르지 않기) 튕긴 뒤 곧바로 떼요. 12 → 7 → 5프렛 순으로 어려워져요.</p>
-      <div className="row-setting small"><span>프렛</span><div className="segmented small grow">{HARM_FRETS.map((f) => <button key={f} className={fret === f ? 'on' : ''} onClick={() => { setFret(f); setState({ verdict: null }); }}>{f}프렛</button>)}</div></div>
+      {isArt ? <p className="hint">인공 하모닉스 [f]: 왼손으로 f 프렛을 <b>누른 채</b>, 오른손 검지 끝을 f+12 프렛 쇠 바로 위 줄에 살짝 대고 엄지(또는 약지)로 튕긴 뒤 검지를 떼요. 누른 음보다 한 옥타브 높은 종소리가 나야 해요.</p> : <p className="hint">{fret === 12 ? '12프렛은 눌러도 같은 음이라 맑게 울리는지만 봐요 — 7·5프렛에서 누름/하모닉스를 정확히 구별해요. ' : ''}줄 위, 프렛 쇠 <b>바로 위</b>에 왼손가락을 살짝 대기만 하고(누르지 않기) 튕긴 뒤 곧바로 떼요. 12 → 7 → 5프렛 순으로 어려워져요.</p>}
+      <div className="row-setting small"><span>프렛</span><div className="segmented small grow">{HARM_FRETS.map((f) => <button key={f} className={fret === f ? 'on' : ''} onClick={() => { setFret(f); setState({ verdict: null }); }}>{f ? `${f}프렛` : '인공'}</button>)}</div></div>
+      {isArt && <div className="row-setting small"><span>누를 프렛</span><button className="mini" onClick={() => { setArt(Math.max(0, art - 1)); setState({ verdict: null }); }}>−</button><b>{art}</b><button className="mini" onClick={() => { setArt(Math.min(7, art + 1)); setState({ verdict: null }); }}>+</button><span className="muted">오른손은 {art + 12}프렛 위</span></div>}
       <div className="strings6">
         {[5, 4, 3, 2, 1, 0].map((i) => (
-          <button key={i} className={`string-btn ${s === i ? 'hl' : ''} ${log[`${i}:${fret}`] ? 'done' : ''}`} onClick={() => { setS(i); setState({ verdict: null }); }}>
-            <small>{stringNo(i)}번</small><b>{midiName(tuning[i] + HARM_SEMIS[fret]).replace(/\d/, '')}</b><small>{log[`${i}:${fret}`] ? '✓' : `<${fret}>`}</small>
+          <button key={i} className={`string-btn ${s === i ? 'hl' : ''} ${log[logKey(i)] ? 'done' : ''}`} onClick={() => { setS(i); setState({ verdict: null }); }}>
+            <small>{stringNo(i)}번</small><b>{midiName(isArt ? tuning[i] + art + 12 : tuning[i] + HARM_SEMIS[fret]).replace(/\d/, '')}</b><small>{log[logKey(i)] ? '✓' : isArt ? `[${art}]` : `<${fret}>`}</small>
           </button>
         ))}
       </div>
       <div className={`verdict ${state.verdict === 'ok' ? 'ok' : state.verdict ? 'wrong' : ''}`} data-testid="harm-verdict">
-        <b>{!on ? `${stringNo(s)}번 줄 <${fret}> — 소리 ${midiName(target)}` : state.verdict === null ? `${stringNo(s)}번 줄 ${fret}프렛 하모닉스를 튕기세요` : state.verdict === 'ok' ? '✓ 하모닉스가 울렸어요' : state.verdict === 'pressed' ? '눌러 버렸어요 — 줄에 닿기만, 누르지 않기' : state.verdict === 'muted' ? '소리가 죽었어요 — 손가락을 더 빨리 떼거나 프렛 쇠 바로 위로' : `다른 음(${state.heard}) — 자리가 어긋났어요`}</b>
+        <b>{!on ? `${stringNo(s)}번 줄 ${label} — 소리 ${midiName(target)}` : state.verdict === null ? `${stringNo(s)}번 줄 ${label} 하모닉스를 튕기세요` : state.verdict === 'ok' ? '✓ 하모닉스가 울렸어요' : state.verdict === 'pressed' ? (isArt ? '그냥 누른 음이 났어요 — 오른손 검지를 줄에 대고 있다가 튕긴 직후 떼기' : '눌러 버렸어요 — 줄에 닿기만, 누르지 않기') : state.verdict === 'muted' ? '소리가 죽었어요 — 손가락을 더 빨리 떼거나 프렛 쇠 바로 위로' : `다른 음(${state.heard}) — 자리가 어긋났어요`}</b>
         {state.ring !== undefined && <span className="small">울림 {state.ring.toFixed(1)}초 {state.ring >= 1.5 ? '— 좋아요' : '— 손가락을 더 빨리 떼면 길게 울려요'}</span>}
         <span className="small muted">이 프렛 {done}/6줄 성공</span>
       </div>

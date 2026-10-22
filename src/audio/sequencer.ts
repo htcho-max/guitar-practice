@@ -1,6 +1,7 @@
 import { resumeAudio } from './context';
 import { playClick, type ClickSound } from './metronome';
 import { clearClicks } from './clicks';
+import { drumBeat } from './drums';
 import { outputLatency } from './latency';
 import type { TickKind } from './schedule';
 
@@ -20,6 +21,12 @@ export interface SeqOptions<T> {
   click?: boolean;
   clickSound?: ClickSound;
   clickVolume?: number;
+  /** 클릭 대신 드럼(+베이스). 셈(count-in)은 그대로 클릭 */
+  backing?: 'drums' | 'bass';
+  /** 드럼+베이스: 박 → 근음 (0=C) */
+  bassRoot?: (beat: number) => number | null;
+  /** 시작 시각 (AudioContext, 셈 포함). 녹음과 겹쳐 들을 때 */
+  startAt?: number;
   /** 사건이 들리는 때에 맞춰 부름 (lap = 몇 번째 바퀴) */
   onEvent?: (e: SeqEvent<T>, lap: number) => void;
   /** 박마다 (셈 포함, beat < 0 이면 셈) */
@@ -57,7 +64,7 @@ export class Sequencer<T = unknown> {
     // 반복이면 한 바퀴 안의 사건만 (없으면 박·클릭만)
     this.events = events.filter((e) => !o.loopBeats || e.beat < o.loopBeats).sort((a, b) => a.beat - b.beat);
     this.o = o;
-    this.startTime = ctx.currentTime + 0.1;
+    this.startTime = o.startAt ?? ctx.currentTime + 0.1;
     this.nextIdx = 0;
     this.lap = 0;
     this.nextBeat = -(o.countIn ?? 0);
@@ -102,7 +109,8 @@ export class Sequencer<T = unknown> {
       if (o.click || b < 0) {
         const pos = ((b % o.meterBeats) + o.meterBeats) % o.meterBeats;
         const kind: TickKind = pos === 0 && o.meterBeats > 1 ? 'accent' : 'beat';
-        playClick(ctx, when, kind, o.clickSound ?? 'wood', o.clickVolume ?? 0.7);
+        if (o.backing && b >= 0) drumBeat(ctx, when, pos, o.meterBeats, 60 / o.bpm, o.clickVolume ?? 0.7, o.backing === 'bass' ? o.bassRoot?.(inLap) : null);
+        else playClick(ctx, when, kind, o.clickSound ?? 'wood', o.clickVolume ?? 0.7);
       }
       if (o.onBeat) { const cb = o.onBeat; this.later(when, () => cb(inLap, lap)); }
       this.nextBeat++;

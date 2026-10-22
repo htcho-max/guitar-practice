@@ -9,7 +9,7 @@ export type Vis = { block: number; seg?: number; event?: number };
 export type Sound =
   | { kind: 'strum'; midis: (number | null)[]; dir: 'down' | 'up'; vel: number }
   | { kind: 'notes'; notes: { midi: number; string: number; harm?: boolean }[]; vel: number }
-  | { kind: 'chuck' } | { kind: 'hit' };
+  | { kind: 'chuck' } | { kind: 'hit' } | { kind: 'slap' };
 export interface PlanEvent {
   beat: number;
   vis?: Vis;
@@ -45,10 +45,10 @@ export function buildPlan(tl: Timeline, o: PlanOpts): PlanEvent[] {
   for (const it of tl.items) {
     if (it.kind === 'tab') {
       const live = it.notes.filter((n) => !n.dead);
-      const notes = live.map((n) => ({ midi: o.tuning[n.string] + (n.harm ? HARM_SEMIS[n.fret] ?? 12 : n.fret) + o.tabShift, string: n.string, harm: n.harm }));
+      const notes = live.map((n) => ({ midi: o.tuning[n.string] + (n.harm ? HARM_SEMIS[n.fret] ?? 12 : n.art ? n.fret + 12 : n.fret) + o.tabShift, string: n.string, harm: n.harm || n.art }));
       out.push({
         beat: it.beat, vis: { block: it.block, event: it.event },
-        sound: notes.length ? { kind: 'notes', notes, vel: 0.8 } : it.notes.length <= 2 ? { kind: 'hit' } : { kind: 'chuck' },
+        sound: notes.length ? { kind: 'notes', notes, vel: 0.8 } : it.notes.some((n) => n.slap) ? { kind: 'slap' } : it.notes.length <= 2 ? { kind: 'hit' } : { kind: 'chuck' },
         expect: { pcs: [...new Set(notes.map((n) => n.midi % 12))], hit: !notes.length },
       });
       continue;

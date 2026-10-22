@@ -4,7 +4,7 @@ import { parseChord } from '../guitar/symbols';
 import { durToken, type MelNote } from './melody';
 
 /** 편곡 방식 (단계) */
-export type FsStyle = 1 | 2 | 3 | 4 | 5 | 6;
+export type FsStyle = 1 | 2 | 3 | 4 | 5 | 6 | 7;
 export const FS_STYLES: { id: FsStyle; name: string; tip: string; level: 1 | 2 | 3 | 4 }[] = [
   { id: 1, level: 1, name: '1단계 · 강박 베이스 + 멜로디', tip: '엄지는 마디 첫 박(4/4 는 1·3박)에 근음만. 멜로디는 a·m 으로 위 줄에서.' },
   { id: 2, level: 2, name: '2단계 · 박마다 엄지 (핀치)', tip: '엄지가 매 박 근음·교대 베이스, 멜로디가 같은 박이면 함께 집듯이(핀치). 엄지는 일정하게, 멜로디는 조금 더 크게.' },
@@ -12,11 +12,12 @@ export const FS_STYLES: { id: FsStyle; name: string; tip: string; level: 1 | 2 |
   { id: 4, level: 3, name: '4단계 · 트래비스 + 멜로디', tip: '엄지가 근음–교대 베이스를 쉬지 않고, 멜로디 없는 & 에 m·i 를 번갈아. 엄지가 흔들리면 템포를 낮추세요.' },
   { id: 5, level: 4, name: '5단계 · 퍼커시브 + 멜로디', tip: '1·3박 엄지 베이스, 2·4박은 ✕ 자리에서 손바닥(엄지 아래)으로 줄을 덮으며 몸통을 쳐 스네어 소리. 멜로디는 그 위로 끊기지 않게.' },
   { id: 6, level: 4, name: '6단계 · 퍼커시브 + 하모닉스', tip: '5단계에 하모닉스를 섞어요. <12> 는 12프렛 바로 위 줄을 살짝 대고 튕긴 뒤 바로 떼기 (누르지 않기). 1박 반 넘게 끄는 멜로디 음에 써요.' },
+  { id: 7, level: 4, name: '7단계 · 슬랩 + 인공 하모닉스', tip: '2·4박은 엄지 옆면으로 5·6번 줄을 내려치는 슬랩(S). 길게 끄는 멜로디는 [f] 인공 하모닉스: 왼손은 f 프렛을 누른 채, 오른손 검지를 12프렛 위(f+12) 줄에 살짝 대고 엄지나 약지로 튕겨요.' },
 ];
 
 export type Voice = 'mel' | 'bass' | 'fill';
-export interface FsNote { string: number; fret: number; midi: number; voice: Voice; /** 자연 하모닉스 (fret = 짚는 자리 12·7·5) */ harm?: boolean }
-export interface FsEvent { beat: number; notes: FsNote[]; chord?: string; /** 퍼커시브 몸통 치기 */ perc?: boolean }
+export interface FsNote { string: number; fret: number; midi: number; voice: Voice; /** 자연 하모닉스 (fret = 짚는 자리 12·7·5) */ harm?: boolean; /** 인공 하모닉스 (짚은 음 + 12) */ art?: boolean; tap?: boolean; /** 엄지 슬랩 (음 없음) */ slap?: boolean }
+export interface FsEvent { beat: number; notes: FsNote[]; chord?: string; /** 퍼커시브 몸통 치기 */ perc?: boolean; /** perc 를 엄지 슬랩으로 */ slap?: boolean }
 export interface ChordSpan { beat: number; dur: number; name: string }
 /** 멜로디 옥타브: auto 기타에 알맞게, high 한 옥타브 위(하이 포지션), low 한 옥타브 아래 */
 export type OctaveMode = 'auto' | 'high' | 'low';
@@ -67,6 +68,8 @@ function placeMelodyAll(ms: number[], tuning: number[], high: boolean): { string
       if (!high) c += f * 0.35 + (f > 5 ? 1.5 : 0);
       out.push({ string: s, fret: f, cost: c });
     }
+    // 칠 자리가 없으면 빈 자리 (나중에 경고)
+    if (!out.length) out.push({ string: -1, fret: 0, cost: 50 });
     return out;
   });
   if (!ms.length) return [];
@@ -94,6 +97,7 @@ function placeMelodyAll(ms: number[], tuning: number[], high: boolean): { string
   const out: { string: number; fret: number }[] = new Array(ms.length);
   for (let i = ms.length - 1; i >= 0; i--) {
     out[i] = { string: cands[i][k].string, fret: cands[i][k].fret };
+    if (out[i].string < 0) out[i] = undefined as unknown as { string: number; fret: number };
     k = back[i][k].from;
   }
   return out;
@@ -118,10 +122,11 @@ export function arrange(melody: MelNote[], chords: ChordSpan[], beatsPerBar: num
   let folded = 0;
   const mel = melody.filter((n) => n.midi !== null).map((n) => {
     let m = n.midi! + shift;
-    while (m > 81) { m -= 12; folded++; }
+    while (m > tuning[5] + MAXF) { m -= 12; folded++; }
+    while (m < tuning[2]) { m += 12; folded++; }
     return { ...n, midi: m - shift };
   });
-  if (folded) warnings.push(`너무 높은 ${folded}음은 한 옥타브 내려 쳐요`);
+  if (folded) warnings.push(`음역을 벗어난 ${folded}음은 한 옥타브 옮겨 쳐요`);
   const pos = placeMelodyAll(mel.map((n) => n.midi! + shift), tuning, high);
   const handAt = new Map<number, number>(); // 박 → 손 위치 (멜로디 프렛)
   let hand = high ? 7 : 2;
@@ -131,10 +136,16 @@ export function arrange(melody: MelNote[], chords: ChordSpan[], beatsPerBar: num
     if (p.fret > 0) hand = p.fret;
     let note: FsNote = { ...p, midi: n.midi! + shift, voice: 'mel' };
     // 6단계: 1박 넘게 끄는 음은 자연 하모닉스가 있으면
-    if (style === 6 && n.dur >= 1.5) {
+    if (style >= 6 && n.dur >= 1.5) {
       for (const s of [5, 4, 3]) {
         const hf = Object.entries(HARM_SEMIS).find(([, semis]) => tuning[s] + semis === note.midi)?.[0];
         if (hf && Number(hf) <= 12) { note = { string: s, fret: Number(hf), midi: note.midi, voice: 'mel', harm: true }; break; }
+      }
+      // 7단계: 자연 하모닉스가 없으면 인공 하모닉스 (한 옥타브 아래 자리를 짚고 +12 에서 울림)
+      if (style === 7 && !note.harm) {
+        const opts = [5, 4, 3, 2].map((s) => ({ s, f: note.midi - 12 - tuning[s] })).filter((x) => x.f >= 0 && x.f <= 9);
+        const best = opts.sort((a, b) => Math.abs(a.f - hand) - Math.abs(b.f - hand))[0];
+        if (best) note = { string: best.s, fret: best.f, midi: note.midi, voice: 'mel', art: true };
       }
     }
     get(n.beat).notes.push(note);
@@ -188,7 +199,7 @@ export function arrange(melody: MelNote[], chords: ChordSpan[], beatsPerBar: num
     const chordStart = Math.abs(span.beat - b) < 1e-6;
     if (style >= 5) {
       if (strong(inBar) || chordStart) addBass(b, false);
-      else get(b).perc = true;
+      else { const e = get(b); e.perc = true; if (style === 7) e.slap = true; }
       continue;
     }
     if (style === 1 && !strong(inBar) && !chordStart) continue;
@@ -230,7 +241,7 @@ export function arrange(melody: MelNote[], chords: ChordSpan[], beatsPerBar: num
       if (durToken(end - events[i].beat)) continue;
       const nb = Math.floor(events[i].beat + 1e-6) + 1;
       if (nb >= end - 1e-6) continue;
-      if (style >= 5) get(nb).perc = true; else addBass(nb, false);
+      if (style >= 5) { const e = get(nb); e.perc = true; if (style === 7) e.slap = true; } else addBass(nb, false);
       changed = true;
     }
     events = list();

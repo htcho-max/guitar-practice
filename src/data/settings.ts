@@ -28,6 +28,8 @@ export interface Settings {
   /** 하루 목표 (분) */
   goalMin: number;
   minDb: number;
+  /** 박 소리: 클릭 / 드럼 / 드럼+베이스 (곡·핑거스타일 재생) */
+  backing: 'click' | 'drums' | 'bass';
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -47,6 +49,7 @@ export const DEFAULT_SETTINGS: Settings = {
   chordLabels: 'finger',
   goalMin: 20,
   minDb: -55,
+  backing: 'click',
 };
 
 export function mergeSettings(stored: Partial<Settings> | undefined): Settings {
