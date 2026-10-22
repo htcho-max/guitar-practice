@@ -1,0 +1,43 @@
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import { VitePWA } from 'vite-plugin-pwa';
+import basicSsl from '@vitejs/plugin-basic-ssl';
+import pkg from './package.json';
+
+// 버전: package.json 버전 + 빌드 시각(+ GitHub 커밋 7자리)
+const stamp = new Date().toISOString().slice(0, 16).replace('T', ' ');
+const sha = process.env.GITHUB_SHA ? ` · ${process.env.GITHUB_SHA.slice(0, 7)}` : '';
+const APP_VERSION = `${pkg.version} (${stamp}${sha})`;
+
+export default defineConfig(({ mode }) => ({
+  // GitHub Pages 에서는 /guitar-practice/ 아래에서 열립니다 (배포 워크플로가 BASE_PATH 지정)
+  base: process.env.BASE_PATH ?? '/',
+  define: { __APP_VERSION__: JSON.stringify(APP_VERSION) },
+  plugins: [
+    // 휴대폰에서 마이크를 쓰려면 HTTPS가 필요해서, phone 모드에서는 임시 인증서로 띄웁니다
+    ...(mode === 'phone' ? [basicSsl()] : []),
+    react(),
+    VitePWA({
+      registerType: 'prompt', // 새 버전은 연습 중이 아닐 때 적용 (appUpdate.ts)
+      workbox: { maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, skipWaiting: true, clientsClaim: true },
+      includeAssets: ['icon.svg', 'icon-*.png', 'apple-touch-icon.png'],
+      manifest: {
+        name: '기타 연습 도우미',
+        short_name: '기타',
+        description: '튜너, 코드 전환, 핑거스타일, 내 곡 연습',
+        theme_color: '#1f2937',
+        background_color: '#111827',
+        display: 'standalone',
+        orientation: 'any',
+        lang: 'ko',
+        icons: [
+          { src: 'icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' },
+          { src: 'icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+          { src: 'icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+          { src: 'icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+        ],
+      },
+    }),
+  ],
+  test: { environment: 'node', include: ['tests/**/*.test.ts'], exclude: ['tests/local/**', 'node_modules/**'] },
+}));

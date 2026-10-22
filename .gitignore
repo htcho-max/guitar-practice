@@ -1,0 +1,7 @@
+node_modules
+dist
+scripts/*.wav
+scripts/*.png
+scripts/*.log
+*.tsbuildinfo
+tests/local/
