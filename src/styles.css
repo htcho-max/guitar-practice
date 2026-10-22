@@ -291,3 +291,39 @@ input.search { width: 100%; }
 }
 .metronome { display: flex; flex-direction: column; gap: 12px; }
 .chip.on small { color: inherit; opacity: .85; }
+
+/* 스트럼 */
+.strum-wrap { display: flex; flex-direction: column; gap: 10px; }
+.strum-bar { display: flex; flex-direction: column; gap: 4px; }
+.strum-chord { font-weight: 800; color: var(--accent); font-size: 13px; }
+.strum-cells { display: grid; gap: 3px; }
+.strum-cell { display: flex; flex-direction: column; align-items: center; padding: 4px 0 2px; border-radius: 8px; background: var(--surface-2); border-bottom: 3px solid transparent; }
+.strum-cell.beat { background: color-mix(in srgb, var(--surface-2) 70%, var(--line)); }
+.strum-cell.now { background: color-mix(in srgb, var(--accent) 30%, var(--surface)); }
+.strum-cell small { font-size: 10px; color: var(--muted); }
+.strum-arrow { font-size: 20px; font-weight: 800; line-height: 1.1; }
+.strum-arrow.up { color: var(--accent); }
+.strum-arrow.rest { color: var(--muted); opacity: .5; }
+.strum-cell.ok { border-bottom-color: var(--good); }
+.strum-cell.early, .strum-cell.late { border-bottom-color: var(--warn); }
+.strum-cell.miss { border-bottom-color: var(--muted); }
+
+/* 곡: 구간 · 따라 치기 · 녹음 */
+.range-row .mini.on { border-color: var(--accent); color: var(--accent); font-weight: 700; }
+.rec-toggle { margin-left: auto; color: var(--bad); }
+.song-body.picking .sb-wrap { cursor: pointer; border-radius: 8px; }
+.song-body.picking .sb-wrap:hover { background: var(--surface-2); }
+.sb-wrap.in-range { background: color-mix(in srgb, var(--accent) 9%, transparent); box-shadow: inset 3px 0 0 var(--accent); border-radius: 4px; }
+.sb-seg.ok .sb-chord, .sb-tok.ok .sb-chord { color: var(--good); }
+.sb-seg.close .sb-chord, .sb-tok.close .sb-chord { color: var(--warn); }
+.sb-seg.wrong .sb-chord, .sb-tok.wrong .sb-chord { color: var(--bad); text-decoration: underline wavy; }
+.sb-tab-mark { position: absolute; bottom: 0; width: 1ch; height: 4px; font-size: .78em; border-radius: 2px; font-family: ui-monospace, Menlo, monospace; }
+.sb-tab-mark.miss { background: var(--muted); }
+.sb-tab-mark.wrong { background: #9333ea; }
+.count-float { position: fixed; left: 50%; top: 40%; transform: translate(-50%, -50%); font-size: 96px; font-weight: 800; color: var(--accent); opacity: .85; pointer-events: none; z-index: 25; }
+.rec-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.rec-list li { display: flex; flex-direction: column; gap: 4px; border-bottom: 1px solid var(--line); padding-bottom: 8px; }
+.rec-list audio { width: 100%; height: 40px; }
+.play-float button { white-space: nowrap; padding: 10px 14px; }
+.play-float > span { white-space: nowrap; font-size: 12px; }
+.song-page { padding-bottom: 72px; }

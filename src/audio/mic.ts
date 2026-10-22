@@ -39,6 +39,8 @@ class Mic {
   inputLatency = 0;
 
   get running() { return this.stream !== null; }
+  /** 녹음용으로 같은 마이크 스트림 */
+  get mediaStream() { return this.stream; }
 
   async start(): Promise<void> {
     if (this.stream) return;

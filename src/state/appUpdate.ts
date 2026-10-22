@@ -2,13 +2,14 @@ import { registerSW } from 'virtual:pwa-register';
 import { mic } from '../audio/mic';
 import { metronome } from '../audio/metronome';
 import { busyFlags } from './busy';
+import { recorder } from '../audio/recorder';
 
 const KEY = 'guitar-app-version';
 let registration: ServiceWorkerRegistration | undefined;
 
 /** 녹음·채점·재생·마이크 사용 중에는 새로고침하지 않음 */
 function busy(): boolean {
-  return mic.running || metronome.running || busyFlags.size > 0;
+  return mic.running || metronome.running || recorder.recording || busyFlags.size > 0;
 }
 
 /** 새 버전은 받아 두었다가, 연습 중이 아닐 때 새로고침합니다. 이전에 쓰던 버전과 다르면 알림용으로 true */

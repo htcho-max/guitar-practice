@@ -1,7 +1,7 @@
 /** 다른 탭으로 가면서 무엇을 열지 (오늘 탭 → 전환 쌍, 패턴, 곡) */
 export type TabId = 'today' | 'chord' | 'finger' | 'song' | 'tuner';
 export type NavRequest =
-  | { tab: 'chord'; mode: 'dict' | 'change'; chord?: string; pair?: [string, string] }
+  | { tab: 'chord'; mode: 'dict' | 'change' | 'strum'; chord?: string; pair?: [string, string]; strumId?: string }
   | { tab: 'finger'; patternId?: string; chords?: string[] }
   | { tab: 'song'; songId?: string }
   | { tab: 'tuner'; view?: 'tuner' | 'metronome' }

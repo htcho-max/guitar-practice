@@ -61,3 +61,19 @@ describe('따라 치기 채점', () => {
     expect(r.weakSlots[0].slot).toBe(1);
   });
 });
+
+import { STRUMS, strokes, countLabel } from '../src/strum/patterns';
+describe('스트럼 패턴', () => {
+  it('칸 수 = 박 × 나눔, 글자는 D U x -', () => {
+    for (const p of STRUMS) {
+      expect(p.seq.length, p.id).toBe(p.beats * p.sub);
+      expect(/^[DUx-]+$/.test(p.seq), p.id).toBe(true);
+    }
+  });
+  it('긋기 위치와 세는 말', () => {
+    const folk = strokes(STRUMS.find((s) => s.id === 'folk')!);
+    expect(folk.map((s) => `${s.kind}${s.beat}`)).toEqual(['D0', 'D1', 'U1.5', 'U2.5', 'D3', 'U3.5']);
+    expect([0, 1, 2, 3].map((i) => countLabel(i, 4))).toEqual(['1', 'e', '&', 'a']);
+    expect(countLabel(3, 2)).toBe('&');
+  });
+});

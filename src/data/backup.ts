@@ -1,6 +1,6 @@
 import { db } from './db';
 
-const TABLES = ['practice', 'changes', 'fingerRuns', 'songs', 'kv'] as const;
+const TABLES = ['practice', 'changes', 'fingerRuns', 'songs', 'kv'] as const; // 녹음은 크기 때문에 백업에서 뺌
 export interface Backup { app: 'guitar-practice'; version: 1; exportedAt: string; tables: Record<string, unknown[]> }
 
 export async function makeBackup(): Promise<Blob> {

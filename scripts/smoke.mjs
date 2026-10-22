@@ -90,6 +90,21 @@ try {
     await page.screenshot({ path: 'scripts/shot-change-minute.png' });
     await page.getByRole('button', { name: '그만' }).click();
 
+    // 스트럼: 들어 보기 → 따라 긁기
+    await page.getByRole('button', { name: '스트럼', exact: true }).click();
+    ok(await seen(page.locator('.strum-bar')), '스트럼 패턴 그림');
+    await page.getByRole('button', { name: '기본 포크 (D-DU-UDU)' }).click();
+    ok((await page.locator('.strum-arrow.up').count()) >= 6, '포크 패턴 업 화살표');
+    await page.getByRole('button', { name: '▶ 들어 보기' }).click();
+    await page.waitForTimeout(1200);
+    ok(await seen(page.locator('.strum-cell.now')), '스트럼 들어 보기: 지금 칸');
+    await page.getByRole('button', { name: '■ 정지' }).click();
+    for (let i = 0; i < 8; i++) await page.getByRole('button', { name: '+4' }).click();
+    const sbpm = num(await page.getByTestId('strum-bpm').textContent());
+    await page.getByRole('button', { name: '🎤 따라 긁기' }).click();
+    ok(await seen(page.getByTestId('strum-result'), ((4 + 16) * 60 / sbpm) * 1000 + 3000), `따라 긁기 결과 (${sbpm} BPM)`);
+    await shotTall(page, 'scripts/shot-strum.png');
+
     // 핑거: 들어 보기 → 따라 치기 (가짜 마이크 소리로 결과까지)
     await tab(page, '핑거');
     ok(await seen(page.locator('svg.tab-bar')), '핑거 탭 그림');
@@ -137,6 +152,22 @@ try {
     ok(await seen(page.locator('.sb-tab-now')), '탭 재생: 지금 음 막대');
     await shotTall(page, 'scripts/shot-song-romance.png');
     await page.getByRole('button', { name: '■ 정지' }).click();
+    await page.getByRole('button', { name: '목록으로' }).click();
+    // 구간 고르기 → 따라 치기 (녹음 켜고) → 결과 · 녹음
+    await page.getByRole('button', { name: /아리랑/ }).click();
+    await page.getByTestId('range-pick').click();
+    await page.locator('.sb-wrap', { hasText: '아라리' }).click();
+    await page.locator('.sb-wrap', { hasText: '고개로' }).click();
+    ok(await seen(page.getByText('8마디 구간')), '구간 2줄 = 8마디');
+    ok((await page.locator('.sb-wrap.in-range').count()) === 2, '구간 표시 2줄');
+    await page.locator('.song-controls .ctl', { hasText: '템포' }).getByRole('button', { name: '+' }).click();
+    for (let i = 0; i < 8; i++) await page.locator('.song-controls .ctl', { hasText: '템포' }).getByRole('button', { name: '+' }).click();
+    await page.getByLabel('● 녹음').check();
+    await page.getByTestId('song-follow').click();
+    ok(await seen(page.getByTestId('song-result'), 16000), '곡 따라 치기 결과');
+    ok(await seen(page.locator('.sb-seg.ok, .sb-seg.close, .sb-seg.wrong')), '코드 판정 색');
+    ok(await seen(page.getByText('내 녹음')), '녹음 저장');
+    await shotTall(page, 'scripts/shot-song-follow.png');
     await page.getByRole('button', { name: '목록으로' }).click();
     // 새 곡 붙여 넣기
     await page.getByRole('button', { name: '＋ 새 곡' }).click();

@@ -11,19 +11,22 @@ import { usePracticeTimer } from '../state/practice';
 import { synth } from '../audio/synth';
 import { takeRequest } from '../state/navigate';
 import { ChangePractice } from './ChangePractice';
+import { StrumPractice } from './Strum';
 import { LEVEL_NAMES } from '../data/settings';
 
 export function ChordsTab() {
   const req = useMemo(() => takeRequest('chord'), []);
-  const [mode, setMode] = useState<'dict' | 'change'>(req?.mode ?? ((localStorage.getItem('guitar-chord-mode') as 'dict' | 'change') || 'dict'));
-  const pick = (m: 'dict' | 'change') => { setMode(m); try { localStorage.setItem('guitar-chord-mode', m); } catch { /* 무시 */ } };
+  type Mode = 'dict' | 'change' | 'strum';
+  const [mode, setMode] = useState<Mode>(req?.mode ?? ((localStorage.getItem('guitar-chord-mode') as Mode) || 'dict'));
+  const pick = (m: Mode) => { setMode(m); try { localStorage.setItem('guitar-chord-mode', m); } catch { /* 무시 */ } };
   return (
     <div className="page">
       <div className="segmented">
         <button className={mode === 'dict' ? 'on' : ''} onClick={() => pick('dict')}>코드 사전</button>
         <button className={mode === 'change' ? 'on' : ''} onClick={() => pick('change')}>전환 연습</button>
+        <button className={mode === 'strum' ? 'on' : ''} onClick={() => pick('strum')}>스트럼</button>
       </div>
-      {mode === 'dict' ? <ChordDict initial={req?.chord} /> : <ChangePractice initialPair={req?.pair} />}
+      {mode === 'dict' ? <ChordDict initial={req?.chord} /> : mode === 'change' ? <ChangePractice initialPair={req?.pair} /> : <StrumPractice initial={req?.strumId} />}
     </div>
   );
 }

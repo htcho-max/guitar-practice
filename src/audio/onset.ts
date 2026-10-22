@@ -8,6 +8,10 @@ export interface Onset {
   pc: number | null;
   /** 새로 들어온 소리의 12음 세기 */
   chroma: number[];
+  /** 새로 들어온 소리 중 250Hz 아래(굵은 줄 기본음) 비율 0~1 — 다운 스트로크가 큼 */
+  lowShare: number;
+  /** 새로 들어온 소리의 무게중심 (Hz) */
+  centroid: number;
 }
 
 /**
@@ -81,7 +85,14 @@ export class OnsetDetector {
       const s = cosine(chroma, noteTemplate(q));
       if (s > bestS) { bestS = s; best = q; }
     }
-    return { time: p.time, strength: p.strength, pc: best >= 0 && bestS > 0.55 ? best : null, chroma };
+    const binHz = sampleRate / fftSize;
+    let lo = 0, tot = 0, wsum = 0;
+    for (let k = Math.ceil(70 / binHz); k < n && k * binHz < 5000; k++) {
+      const e = diff[k] * diff[k];
+      tot += e; wsum += e * k * binHz;
+      if (k * binHz < 250) lo += e;
+    }
+    return { time: p.time, strength: p.strength, pc: best >= 0 && bestS > 0.55 ? best : null, chroma, lowShare: tot ? lo / tot : 0, centroid: tot ? wsum / tot : 0 };
   }
 }
 

@@ -1,7 +1,7 @@
 import Dexie, { type Table } from 'dexie';
 
 /** 하루·종류별 연습 시간 (key = 날짜:종류) */
-export type PracticeKind = 'tuner' | 'metronome' | 'chord' | 'change' | 'finger' | 'song';
+export type PracticeKind = 'tuner' | 'metronome' | 'chord' | 'change' | 'strum' | 'finger' | 'song';
 export interface PracticeRow { key: string; date: string; kind: PracticeKind; sec: number }
 /** 1분 전환 기록 */
 export interface ChangeRow { id?: number; pair: string; count: number; date: string; at: number; auto: boolean }
@@ -20,6 +20,8 @@ export interface SongRow {
   createdAt: number; updatedAt: number; openedAt: number;
 }
 export interface KvRow { key: string; value: unknown }
+/** 내 연주 녹음 */
+export interface RecordingRow { id?: number; songId: string; label: string; date: string; at: number; sec: number; mime: string; blob: Blob }
 
 class GuitarDB extends Dexie {
   practice!: Table<PracticeRow, string>;
@@ -27,6 +29,7 @@ class GuitarDB extends Dexie {
   fingerRuns!: Table<FingerRun, number>;
   songs!: Table<SongRow, string>;
   kv!: Table<KvRow, string>;
+  recordings!: Table<RecordingRow, number>;
   constructor(name = 'guitar-practice') {
     super(name);
     this.version(1).stores({
@@ -36,6 +39,7 @@ class GuitarDB extends Dexie {
       songs: 'id, title, updatedAt, openedAt',
       kv: 'key',
     });
+    this.version(2).stores({ recordings: '++id, songId, at' });
   }
 }
 

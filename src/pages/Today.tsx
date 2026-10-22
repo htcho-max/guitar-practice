@@ -7,8 +7,9 @@ import { localDate, addDays, streak, formatDuration } from '../data/dates';
 import { LEVEL_NAMES, type Level } from '../data/settings';
 import { CHANGE_PAIRS } from '../guitar/chords';
 import { PATTERNS, PROGRESSIONS, patternById } from '../finger/patterns';
+import { STRUMS, strumById } from '../strum/patterns';
 
-const KIND_NAMES: Record<string, string> = { tuner: '튜닝', metronome: '메트로놈', chord: '코드 잡기', change: '코드 전환', finger: '핑거', song: '곡' };
+const KIND_NAMES: Record<string, string> = { tuner: '튜닝', metronome: '메트로놈', chord: '코드 잡기', change: '코드 전환', strum: '스트럼', finger: '핑거', song: '곡' };
 
 export function Today({ openSettings }: { openSettings: () => void }) {
   const { settings, update } = useSettings();
@@ -17,6 +18,7 @@ export function Today({ openSettings }: { openSettings: () => void }) {
   const [runs, setRuns] = useState<FingerRun[]>([]);
   const [lastSong, setLastSong] = useState<SongRow | null>(null);
   const [ladder, setLadder] = useState<Record<string, { bpm: number }>>({});
+  const [strumLadder, setStrumLadder] = useState<Record<string, { bpm: number }>>({});
   const today = localDate();
   const load = () => {
     const from = addDays(today, -60);
@@ -25,6 +27,7 @@ export function Today({ openSettings }: { openSettings: () => void }) {
     db.fingerRuns.where('date').aboveOrEqual(addDays(today, -30)).toArray().then(setRuns).catch(() => {});
     db.songs.orderBy('openedAt').last().then((s) => setLastSong(s && s.openedAt ? s : null)).catch(() => {});
     kvGet('finger-ladder', {}).then(setLadder);
+    kvGet('strum-ladder', {}).then(setStrumLadder);
   };
   useEffect(() => { load(); return onPracticeSaved(load); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -47,9 +50,12 @@ export function Today({ openSettings }: { openSettings: () => void }) {
   const pats = PATTERNS.filter((p) => p.level === level);
   const pat = pats.find((p) => (ladder[p.id]?.bpm ?? p.bpm[0]) < p.bpm[1]) ?? pats[0];
   const prog = PROGRESSIONS.filter((p) => p.level === level)[new Date().getDate() % PROGRESSIONS.filter((p) => p.level === level).length];
+  const strs = STRUMS.filter((p) => p.level === level);
+  const strum = strs.find((p) => (strumLadder[p.id]?.bpm ?? p.bpm[0]) < p.bpm[1]) ?? strs[0];
   const plan = [
     { key: 'tuner', title: '튜닝', sub: '여섯 줄 모두 ✓', go: () => navigate({ tab: 'tuner', view: 'tuner' }) },
     { key: 'change', title: `코드 전환 1분: ${pair[0]} ↔ ${pair[1]}`, sub: bestOf(pair.join('|')) >= 0 ? `최고 ${bestOf(pair.join('|'))}번` : '처음', go: () => navigate({ tab: 'chord', mode: 'change', pair }) },
+    { key: 'strum', title: `스트럼: ${strum.name}`, sub: `${strumLadder[strum.id]?.bpm ?? strum.bpm[0]} BPM`, go: () => navigate({ tab: 'chord', mode: 'strum', strumId: strum.id }) },
     { key: 'finger', title: `핑거: ${pat.name}`, sub: `${prog.chords.join(' – ')} · ${ladder[pat.id]?.bpm ?? pat.bpm[0]} BPM`, go: () => navigate({ tab: 'finger', patternId: pat.id, chords: prog.chords }) },
     { key: 'song', title: lastSong ? `곡: ${lastSong.title}` : '내 곡 넣기', sub: lastSong ? '이어서 연습' : '코드 악보·탭 붙여 넣기', go: () => navigate({ tab: 'song', songId: lastSong?.id }) },
   ];
@@ -91,9 +97,9 @@ export function Today({ openSettings }: { openSettings: () => void }) {
       </div>
       {recentRuns.length > 0 && (
         <>
-          <h3>최근 핑거 연습</h3>
+          <h3>최근 따라 치기</h3>
           <ul className="plain small">
-            {recentRuns.map((r) => <li key={r.id}>{patternById(r.patternId).name} · {r.bpm} BPM · 친 음 {Math.round(r.hitRate * 100)}% · 흔들림 ±{Math.round(r.sdMs)}ms {r.passed ? '✓' : ''}</li>)}
+            {recentRuns.map((r) => <li key={r.id}>{r.patternId.startsWith('strum:') ? `스트럼 ${strumById(r.patternId.slice(6)).name}` : patternById(r.patternId).name} · {r.bpm} BPM · 맞춘 {Math.round(r.hitRate * 100)}% · 흔들림 ±{Math.round(r.sdMs)}ms {r.passed ? '✓' : ''}</li>)}
           </ul>
         </>
       )}
