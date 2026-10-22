@@ -117,3 +117,10 @@ export function containsNote(chroma: number[], pc: number): boolean {
   for (let q = 0; q < 12; q++) best = Math.max(best, cosine(chroma, noteTemplate(q)));
   return best > 0 && cosine(chroma, noteTemplate(pc)) >= best * 0.75;
 }
+
+/** 음이 뚜렷한 정도 0~1 (가장 비슷한 한 음 모양과의 일치). 몸통 치기·뮤트는 낮음 */
+export function tonality(chroma: number[]): number {
+  let best = 0;
+  for (let q = 0; q < 12; q++) best = Math.max(best, cosine(chroma, noteTemplate(q)));
+  return best;
+}

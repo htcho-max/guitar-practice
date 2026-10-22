@@ -13,10 +13,11 @@ import { useMic } from '../state/useMic';
 import { localDate } from '../data/dates';
 import { Recordings } from '../components/Recordings';
 import { recordReview } from '../data/review';
+import { musicXmlToSong } from '../song/musicxml';
 import { parseMelody } from '../fingerstyle/melody';
-import { arrange, FS_STYLES, type FsStyle, type ChordSpan } from '../fingerstyle/arrange';
+import { arrange, FS_STYLES, type FsStyle, type ChordSpan, type OctaveMode } from '../fingerstyle/arrange';
 import { toSongText } from '../fingerstyle/ascii';
-import { FsPlayer } from './Fingerstyle';
+import { FsPlayer, OctavePicker } from './Fingerstyle';
 import { parseChord, shapeForSymbol, transposeName } from '../guitar/symbols';
 import { shapeMidis, type ChordShape } from '../guitar/chords';
 import { tuningById } from '../guitar/tunings';
@@ -51,9 +52,18 @@ export function SongsTab() {
     let n = 0;
     const bad: string[] = [];
     for (const f of Array.from(files)) {
-      try { const text = await f.text(); await addSong(text, f.name.replace(/\.[^.]+$/, '')); n++; } catch { bad.push(f.name); }
+      try {
+        if (/\.mxl$/i.test(f.name)) { bad.push(`${f.name} (압축된 .mxl — 악보 프로그램에서 "압축 안 한 MusicXML" 로 내보내 주세요)`); continue; }
+        const text = await f.text();
+        if (/\.(musicxml|xml)$/i.test(f.name) || /<score-partwise/.test(text.slice(0, 2000))) {
+          const r = musicXmlToSong(text);
+          await addSong(r.text, f.name.replace(/\.[^.]+$/, ''));
+          if (r.warnings.length) bad.push(`${f.name}: ${r.warnings.join(', ')}`);
+        } else await addSong(text, f.name.replace(/\.[^.]+$/, ''));
+        n++;
+      } catch (e) { bad.push(`${f.name}${e instanceof Error ? ` (${e.message})` : ''}`); }
     }
-    setMsg(`곡 ${n}개를 불러왔어요.${bad.length ? ` 못 읽은 파일: ${bad.join(', ')}` : ''}`);
+    setMsg(`곡 ${n}개를 불러왔어요.${bad.length ? ` 알림: ${bad.join(' / ')}` : ''}`);
     load();
   }
   async function addSamples() {
@@ -75,7 +85,7 @@ export function SongsTab() {
         <button className="primary grow" onClick={() => setEditing('new')}>＋ 새 곡</button>
         <label className="button secondary grow">
           파일 불러오기
-          <input type="file" accept=".txt,.cho,.chopro,.pro,.crd,.chordpro,text/plain" multiple hidden onChange={(e) => { importFiles(e.target.files); e.target.value = ''; }} data-testid="song-file" />
+          <input type="file" accept=".txt,.cho,.chopro,.pro,.crd,.chordpro,.musicxml,.xml,.mxl,text/plain,application/vnd.recordare.musicxml+xml" multiple hidden onChange={(e) => { importFiles(e.target.files); e.target.value = ''; }} data-testid="song-file" />
         </label>
       </div>
       {msg && <p className="hint" role="status">{msg}</p>}
@@ -135,7 +145,7 @@ const player = new Sequencer<SeqData>();
 
 function playSound(snd: Sound, w: number) {
   if (snd.kind === 'strum') synth.strum(snd.midis, w, snd.dir, snd.vel);
-  else if (snd.kind === 'notes') snd.notes.forEach((n) => synth.note(n.midi, w, snd.vel, n.string));
+  else if (snd.kind === 'notes') snd.notes.forEach((n) => (n.harm ? synth.harm(n.midi, w, snd.vel, n.string) : synth.note(n.midi, w, snd.vel, n.string)));
   else if (snd.kind === 'chuck') synth.chuck(w);
   else synth.hit(w);
 }
@@ -166,6 +176,8 @@ function SongView({ song, onBack, onEdit, initialRange }: { song: SongRow; onBac
   const [range, setRange] = useState<[number, number] | null>(initialRange ?? null);
   const [loop, setLoop] = useState(true);
   const [rec, setRec] = useState(false);
+  const [ladder, setLadder] = useState(false);
+  const goalBpm = meta.tempo || song.bpm || 80;
   const [recTick, setRecTick] = useState(0);
   const [result, setResult] = useState<FollowResult | null>(null);
   const [arranging, setArranging] = useState(false);
@@ -190,7 +202,7 @@ function SongView({ song, onBack, onEdit, initialRange }: { song: SongRow; onBac
   const shown = (name: string) => transposeName(name, shift);
   const shapeCache = useRef(new Map<string, ChordShape | null>());
   const shapeOf = (name: string): ChordShape | null => {
-    if (!shapeCache.current.has(name)) { const c = parseChord(name); shapeCache.current.set(name, c ? shapeForSymbol(c) : null); }
+    if (!shapeCache.current.has(name)) { const c = parseChord(name); shapeCache.current.set(name, c ? shapeForSymbol(c, 0, tuning) : null); }
     return shapeCache.current.get(name)!;
   };
   const timeline = useMemo(() => buildTimeline(parsed), [parsed]);
@@ -293,6 +305,7 @@ function SongView({ song, onBack, onEdit, initialRange }: { song: SongRow; onBac
         setResult({ r, chords: [...verdicts.values()], marks });
         const vs = [...verdicts.values()];
         const chordOk = vs.length ? vs.filter((v) => v.verdict === 'ok').length / vs.length : 1;
+        if (ladder && r.hitRate >= 0.85 && chordOk >= 0.8) setBpm((b) => Math.min(goalBpm, Math.max(b + 1, Math.round(b * 1.05))));
         recordReview({ key: `song:${song.id}:${range ? range.join('-') : 'all'}`, kind: 'song', label: `${song.title} · ${rangeLabel}`, nav: { tab: 'song', songId: song.id, range: range ?? undefined }, note: `박 ${Math.round(r.hitRate * 100)}% · 코드 ${Math.round(chordOk * 100)}%` }, r.hitRate >= 0.85 && chordOk >= 0.8);
         setMode('idle'); setNow(null); setCount(null);
       }, 500),
@@ -352,6 +365,7 @@ function SongView({ song, onBack, onEdit, initialRange }: { song: SongRow; onBac
       <div className="row-setting small range-row">
         <button className={`mini ${picking ? 'on' : ''}`} onClick={() => { setPicking(!picking); if (!picking) setRange(null); }} data-testid="range-pick">{picking ? (range ? '끝 줄을 누르세요' : '시작 줄을 누르세요') : '구간 고르기'}</button>
         {range && !picking && <><span>{rangeBars}마디 구간</span><label><input type="checkbox" checked={loop} onChange={(e) => setLoop(e.target.checked)} /> 반복</label><button className="mini" onClick={() => setRange(null)}>전체로</button></>}
+        <label title="따라 치기를 통과할 때마다 템포 +5% (원래 템포까지)"><input type="checkbox" checked={ladder} onChange={(e) => { setLadder(e.target.checked); if (e.target.checked && bpm >= goalBpm) setBpm(Math.max(40, Math.round(goalBpm * 0.6))); }} /> 템포 사다리{ladder ? ` ${bpm}→${goalBpm}` : ''}</label>
         <label className="rec-toggle"><input type="checkbox" checked={rec} onChange={(e) => setRec(e.target.checked)} disabled={playing} /> ● 녹음</label>
       </div>
       {melodyText ? (
@@ -454,25 +468,29 @@ function SongBlock({ block: b, bi, now, shown, onChord, meta, marks }: { block: 
 
 /** 내 곡 멜로디(M| 줄) + 코드 → 핑거스타일 탭 */
 function ArrangeSheet({ song, melody, timeline, beatsPerBar, tempo, onClose }: { song: SongRow; melody: string; timeline: ReturnType<typeof buildTimeline>; beatsPerBar: number; tempo: number; onClose: () => void }) {
-  const [style, setStyle] = useState<FsStyle>(2);
+  const { settings } = useSettings();
+  const tuning = tuningById(settings.tuningId).midi;
+  const [style, setStyle] = useState<FsStyle>(settings.level === 4 ? 5 : 2);
+  const [octave, setOctave] = useState<OctaveMode>('auto');
   const [bpm, setBpm] = useState(Math.max(50, Math.round(tempo * 0.75)));
   const [saved, setSaved] = useState<string | null>(null);
   const mel = useMemo(() => parseMelody(melody), [melody]);
   const spans: ChordSpan[] = useMemo(() => timeline.items.filter((i): i is TimelineItem & { kind: 'chord' } => i.kind === 'chord').map((i) => ({ beat: i.beat, dur: i.dur, name: i.chord })), [timeline]);
-  const arr = useMemo(() => arrange(mel.notes, spans, beatsPerBar, style), [mel, spans, beatsPerBar, style]);
+  const arr = useMemo(() => arrange(mel.notes, spans, beatsPerBar, style, { octave, tuning }), [mel, spans, beatsPerBar, style, octave, tuning]);
   const melBeats = mel.beats, chordBeats = spans.reduce((t, c) => Math.max(t, c.beat + c.dur), 0);
   return (
     <div className="sheet-backdrop" onClick={onClose}>
       <div className="sheet editor" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="핑거스타일 편곡">
         <div className="card-head"><b>핑거스타일 편곡 · {song.title}</b><button className="mini" onClick={onClose}>닫기</button></div>
         <div className="chips">{FS_STYLES.map((s) => <button key={s.id} className={s.id === style ? 'chip on' : 'chip'} onClick={() => setStyle(s.id)}>{s.name}</button>)}</div>
+        <OctavePicker value={octave} onChange={setOctave} />
         {mel.errors.length > 0 && <p className="error">멜로디에서 못 읽은 글자: {mel.errors.slice(0, 5).join(' ')}</p>}
         {Math.abs(melBeats - chordBeats) > 0.01 && <p className="hint">멜로디 {melBeats}박, 코드 {chordBeats}박 — 길이가 달라요. 마디 줄과 M| 줄 길이를 맞춰 주세요.</p>}
         {arr.warnings.length > 0 && <p className="hint">{arr.warnings.slice(0, 3).join(' · ')}</p>}
         <FsPlayer arr={arr} bpm={bpm} setBpm={(b) => setBpm(clampBpm(b))} target={tempo} />
         <button className="primary" data-testid="arrange-save" onClick={async () => {
           const st = FS_STYLES.find((x) => x.id === style)!;
-          await addSong(toSongText(arr, { title: `${song.title} (핑거스타일 ${style}단계)`, artist: song.artist, tempo, note: st.name }));
+          await addSong(toSongText(arr, { title: `${song.title} (핑거스타일 ${style}단계${octave === 'high' ? ' · 하이' : ''})`, artist: song.artist, tempo, note: st.name }));
           setSaved('새 곡으로 저장했어요. 목록에서 열 수 있어요.');
         }}>탭을 새 곡으로 저장</button>
         {saved && <p className="hint" role="status">{saved}</p>}

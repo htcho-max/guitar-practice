@@ -1,7 +1,7 @@
 import { isChordToken } from '../guitar/symbols';
 
 export interface Seg { chord?: string; text: string }
-export interface TabNote { string: number; fret: number; tech?: string; dead?: boolean }
+export interface TabNote { string: number; fret: number; tech?: string; dead?: boolean; /** <12> 자연 하모닉스 */ harm?: boolean }
 export interface TabEvent { beat: number; notes: TabNote[]; /** 원래 줄에서 글자 위치 (화면 표시) */ col: number }
 export type Block =
   | { kind: 'section'; label: string }
@@ -142,11 +142,12 @@ export function parseSong(text: string): ParsedSong {
     // 탭 (6줄 묶음) — {sot} 없이도 알아봄
     const looksTab = TAB_LABELED.test(line) || (inTab && TAB_LINE.test(line) && line.includes('-'));
     if (looksTab) { tabBuf.push(line); continue; }
-    if (RHYTHM_LINE.test(line) && /[|:]\s*[-whqest.\s|]+$/.test(line) && TAB_LABELED.test(lines[i + 1] ?? '')) { tabBuf.push(line); continue; }
+    if (RHYTHM_LINE.test(line) && /[|:]\s*[-whqestT.\s|]+$/.test(line) && TAB_LABELED.test(lines[i + 1] ?? '')) { tabBuf.push(line); continue; }
     if (inTab && !line.trim()) { flushTab(); continue; }
     flushTab();
     if (!line.trim()) { if (blocks.length && blocks[blocks.length - 1].kind !== 'empty') blocks.push({ kind: 'empty' }); continue; }
-    if (/^\s*\[?(intro|verse|chorus|bridge|outro|pre-?chorus|interlude|전주|간주|후주|후렴|절|\d절|브릿지|브리지)\b.*\]?\s*:?\s*$/i.test(line) && !isChordLine(line)) {
+    const bracket = /^\s*\[([^\]]+)\]\s*:?\s*$/.exec(line);
+    if ((bracket && !isChordToken(bracket[1].trim())) || (/^\s*\[?(intro|verse|chorus|bridge|outro|pre-?chorus|interlude|전주|간주|후주|후렴|절|\d절|브릿지|브리지)(?![A-Za-z]).*\]?\s*:?\s*$/i.test(line) && !isChordLine(line))) {
       blocks.push({ kind: 'section', label: line.trim().replace(/^\[|\]$|:$/g, '') });
       continue;
     }
@@ -185,11 +186,11 @@ function splitTabGroups(lines: string[]): { lines: string[]; rhythm?: string }[]
   return out;
 }
 
-const DUR: Record<string, number> = { w: 4, h: 2, q: 1, e: 0.5, s: 0.25, t: 1 / 3 };
+const DUR: Record<string, number> = { w: 4, h: 2, q: 1, e: 0.5, s: 0.25, t: 1 / 3, T: 2 / 3 };
 /** 리듬 줄 → 글자 위치마다 길이(박) */
 export function parseRhythm(line: string): { col: number; dur: number }[] {
   const out: { col: number; dur: number }[] = [];
-  const re = /([whqest])(\.?)/g;
+  const re = /([whqestT])(\.?)/g;
   const start = line.search(/[|:]/) + 1;
   let m: RegExpExecArray | null;
   re.lastIndex = start;
@@ -221,6 +222,7 @@ export function parseTab(lines: string[], beatsPerBar = 4, rhythm?: string): Blo
         note = { string, fret: +row.slice(c, c + len) };
         const prev = row[c - 1];
         if (prev && /[hpb/\\~r]/.test(prev)) note.tech = prev;
+        if (prev === '<') note.harm = true;
       } else if (ch === 'x' || ch === 'X') {
         note = { string, fret: 0, dead: true };
       }

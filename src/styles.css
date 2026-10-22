@@ -411,3 +411,12 @@ input.search { width: 100%; }
 .voice-legend .mel { color: var(--accent); font-weight: 800; }
 .voice-legend .fill { color: var(--muted); }
 .sb-melody { font-family: ui-monospace, Menlo, monospace; font-size: .75em; color: var(--muted); white-space: pre-wrap; margin: 0 0 6px; }
+.tab-num.fs-harm { font-size: 9px; } .fs-perc { fill: var(--accent); font-weight: 900; }
+.perc-row { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; }
+.perc-cell { display: flex; align-items: center; justify-content: center; min-height: 48px; border-radius: 10px; background: var(--surface-2); font-size: 13px; border-bottom: 3px solid transparent; }
+.perc-cell.beat { background: color-mix(in srgb, var(--surface-2) 70%, var(--line)); }
+.perc-cell.now { background: color-mix(in srgb, var(--accent) 30%, var(--surface)); }
+.perc-cell.ok { border-bottom-color: var(--good); }
+.perc-cell.late { border-bottom-color: var(--warn); }
+.perc-cell.wrong { border-bottom-color: #9333ea; }
+.perc-cell.miss { border-bottom-color: var(--muted); }

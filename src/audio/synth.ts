@@ -93,6 +93,27 @@ class GuitarSynth {
     for (let s = 0; s < 6; s++) this.choke(s, when);
     this.thump(when, vel, 1800, 0.03);
   }
+  /** 하모닉스: 맑은 종소리 (사인파 + 약한 배음) */
+  harm(midi: number, when: number, vel = 0.8, string?: number) {
+    const ctx = this.ctx;
+    if (!ctx || !this.bus) return;
+    const t = Math.max(when, ctx.currentTime);
+    if (string !== undefined) this.choke(string, t);
+    const f = midiToFreq(midi, this.a4);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vel * 0.35, t + 0.004);
+    g.gain.exponentialRampToValueAtTime(0.0008, t + 2.6);
+    g.connect(this.bus);
+    for (const [mul, amp] of [[1, 1], [2, 0.18], [3, 0.06]] as const) {
+      const osc = ctx.createOscillator();
+      osc.frequency.value = f * mul;
+      const og = ctx.createGain();
+      og.gain.value = amp;
+      osc.connect(og).connect(g);
+      osc.start(t); osc.stop(t + 2.7);
+    }
+  }
   /** 퍼커시브 히트: 몸통 '쿵' */
   hit(when: number, vel = 0.8) { this.thump(when, vel, 180, 0.09); }
 

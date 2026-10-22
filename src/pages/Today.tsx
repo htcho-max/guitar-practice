@@ -4,7 +4,7 @@ import { navigate } from '../state/navigate';
 import { onPracticeSaved } from '../state/practice';
 import { db, kvGet, type PracticeRow, type ChangeRow, type FingerRun, type SongRow } from '../data/db';
 import { localDate, addDays, streak, formatDuration } from '../data/dates';
-import { LEVEL_NAMES, type Level } from '../data/settings';
+import { LEVEL_NAMES, lv3, type Level } from '../data/settings';
 import { CHANGE_PAIRS } from '../guitar/chords';
 import { PATTERNS, PROGRESSIONS, patternById } from '../finger/patterns';
 import { STRUMS, strumById } from '../strum/patterns';
@@ -63,18 +63,20 @@ export function Today({ openSettings }: { openSettings: () => void }) {
   const doneToday = new Set(changes.filter((c) => c.date === today).map((c) => c.pair));
   const bestOf = (k: string) => changes.filter((c) => c.pair === k).reduce((m, c) => Math.max(m, c.count), -1);
   const pair = pairs.filter((p) => !doneToday.has(p.join('|'))).sort((a, b) => bestOf(a.join('|')) - bestOf(b.join('|')))[0] ?? pairs[0];
-  const pats = PATTERNS.filter((p) => p.level === level);
+  const l3 = lv3(level);
+  const pats = PATTERNS.filter((p) => p.level === l3);
   const pat = pats.find((p) => (ladder[p.id]?.bpm ?? p.bpm[0]) < p.bpm[1]) ?? pats[0];
-  const prog = PROGRESSIONS.filter((p) => p.level === level)[new Date().getDate() % PROGRESSIONS.filter((p) => p.level === level).length];
-  const strs = STRUMS.filter((p) => p.level === level);
+  const prog = PROGRESSIONS.filter((p) => p.level === l3)[new Date().getDate() % PROGRESSIONS.filter((p) => p.level === l3).length];
+  const strs = STRUMS.filter((p) => p.level === l3);
   const strum = strs.find((p) => (strumLadder[p.id]?.bpm ?? p.bpm[0]) < p.bpm[1]) ?? strs[0];
   const fsTune = tuneById(level === 1 ? 'twinkle' : level === 2 ? 'ode' : 'greensleeves');
-  const fsStyle = level === 1 ? 1 : level === 2 ? 2 : 3;
+  const fsStyle = level === 1 ? 1 : level === 2 ? 2 : level === 3 ? 3 : 5;
   const plan = [
     { key: 'tuner', title: '튜닝', sub: '여섯 줄 모두 ✓', go: () => navigate({ tab: 'tuner', view: 'tuner' }) },
     { key: 'change', title: `코드 전환 1분: ${pair[0]} ↔ ${pair[1]}`, sub: bestOf(pair.join('|')) >= 0 ? `최고 ${bestOf(pair.join('|'))}번` : '처음', go: () => navigate({ tab: 'chord', mode: 'change', pair }) },
     { key: 'strum', title: `스트럼: ${strum.name}`, sub: `${strumLadder[strum.id]?.bpm ?? strum.bpm[0]} BPM`, go: () => navigate({ tab: 'chord', mode: 'strum', strumId: strum.id }) },
     { key: 'fingerstyle', title: `핑거스타일: ${fsTune.title}`, sub: `${fsStyle}단계 · 멜로디 + 베이스`, go: () => navigate({ tab: 'finger', mode: 'fs', tuneId: fsTune.id, style: fsStyle }) },
+    ...(level >= 4 ? [{ key: 'tech', title: '기법: 퍼커시브 · 하모닉스 · 레가토', sub: '하나씩 5분', go: () => navigate({ tab: 'finger', mode: 'tech' }) }] : []),
     { key: 'finger', title: `아르페지오: ${pat.name}`, sub: `${prog.chords.join(' – ')} · ${ladder[pat.id]?.bpm ?? pat.bpm[0]} BPM`, go: () => navigate({ tab: 'finger', mode: 'arp', patternId: pat.id, chords: prog.chords }) },
     ...(level >= 2 ? [{ key: 'fretboard', title: level === 2 ? '지판 음 이름 외우기' : '스케일 모양', sub: level === 2 ? '20문제 · 0~12프렛' : '펜타토닉 한 포지션 따라 치기', go: () => navigate({ tab: 'tuner', view: 'fretboard', sub: level === 2 ? 'names' : 'scales' }) }] : []),
     { key: 'song', title: lastSong ? `곡: ${lastSong.title}` : '내 곡 넣기', sub: lastSong ? '이어서 연습' : '코드 악보·탭 붙여 넣기', go: () => navigate({ tab: 'song', songId: lastSong?.id }) },
@@ -151,6 +153,7 @@ function LevelPicker({ onPick }: { onPick: (l: Level) => void }) {
     { l: 1, title: '입문', sub: '기타를 처음 잡거나 코드 몇 개만 알아요. C G D Em Am 부터.' },
     { l: 2, title: '초급', sub: '기본 코드는 잡아요. F·7화음, 아르페지오·교대 베이스를 늘리고 싶어요.' },
     { l: 3, title: '중급', sub: '바레 코드가 돼요. 트래비스 피킹·핀치·퍼커시브와 곡 연습을.' },
+    { l: 4, title: '고급 (목표)', sub: '핑거스타일 곡을 쳐요. 퍼커시브·하모닉스·하이 포지션까지 — 오시오 코타로·김영소 같은 연주를 향해.' },
   ];
   return (
     <div className="page">

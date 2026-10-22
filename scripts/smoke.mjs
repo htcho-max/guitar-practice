@@ -133,6 +133,28 @@ try {
     await page.getByTestId('fs-follow').click();
     ok(await seen(page.getByTestId('fs-result'), (36 * 60 / fsb) * 1000 + 3000), `핑거스타일 따라 치기 결과 (${fsb} BPM)`);
     await shotTall(page, 'scripts/shot-fingerstyle.png');
+    // 하이 포지션 + 5·6단계
+    await page.getByRole('button', { name: '옥타브 위 (하이 포지션)' }).click();
+    await page.getByRole('button', { name: /6단계 · 퍼커시브 \+ 하모닉스/ }).click();
+    ok(await seen(page.locator('.fs-perc')), '6단계: 퍼커시브 ✕');
+    ok(await seen(page.locator('.tab-num.fs-harm')), '6단계: 하모닉스 <12>');
+    const mf = num((await page.getByText(/최고 \d+프렛/).textContent()).match(/최고 (\d+)/)[1]);
+    ok(mf >= 7, `하이 포지션 최고 ${mf}프렛`);
+    await shotTall(page, 'scripts/shot-fs-high.png');
+    await page.getByRole('button', { name: '자동', exact: true }).click();
+    // 기법 연습장
+    await page.getByRole('button', { name: '기법', exact: true }).click();
+    ok(await seen(page.locator('.perc-row')), '기법: 퍼커시브');
+    await page.getByRole('button', { name: '▶ 들어 보기' }).click();
+    await page.waitForTimeout(1200);
+    ok(await seen(page.locator('.perc-cell.now')), '퍼커시브 들어 보기');
+    await page.getByRole('button', { name: '■ 정지' }).click();
+    await page.getByRole('button', { name: '하모닉스', exact: true }).click();
+    await page.getByRole('button', { name: '7프렛' }).click();
+    ok(await seen(page.getByTestId('harm-verdict')), '기법: 하모닉스');
+    await page.getByRole('button', { name: '해머온·풀오프' }).click();
+    ok(await seen(page.getByText(/5h7/)), '기법: 해머온');
+    await shotTall(page, 'scripts/shot-technique.png');
     await page.getByRole('button', { name: '아르페지오', exact: true }).click();
     ok(await seen(page.locator('svg.tab-bar')), '핑거 탭 그림');
     // 내 핑거 패턴 만들기: 기본 8칸에서 4박 a 를 빼고 몸통 치기
@@ -232,6 +254,16 @@ try {
     await page.waitForTimeout(3000);
     ok(await seen(page.locator('.sb-tab-now')), '편곡한 곡 재생');
     await page.getByRole('button', { name: '■ 정지' }).click();
+    await page.getByRole('button', { name: '목록으로' }).click();
+    // MusicXML 리드시트 불러오기 → 편곡 (하이 포지션)
+    await page.getByTestId('song-file').setInputFiles('scripts/test-leadsheet.musicxml');
+    ok(await seen(page.getByText(/곡 1개를 불러왔어요/)), 'MusicXML 불러오기');
+    await page.getByRole('button', { name: /시험 리드시트/ }).click();
+    ok(await seen(page.locator('.sb-melody')), 'MusicXML → 멜로디 줄');
+    await page.getByTestId('arrange-open').click();
+    await page.getByRole('dialog').getByRole('button', { name: '옥타브 위 (하이 포지션)' }).click();
+    ok(await seen(page.locator('.sheet svg.fs-bar')), 'MusicXML 곡 편곡');
+    await page.getByRole('dialog').getByRole('button', { name: '닫기' }).click();
     await page.getByRole('button', { name: '목록으로' }).click();
     // 새 곡 붙여 넣기
     await page.getByRole('button', { name: '＋ 새 곡' }).click();

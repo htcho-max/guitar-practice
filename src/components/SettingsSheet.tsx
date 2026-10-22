@@ -47,7 +47,7 @@ export function SettingsSheet({ onClose }: { onClose: () => void }) {
         <div className="card-head"><b>설정</b><button className="mini" onClick={onClose}>닫기</button></div>
         <div className="row-setting col">
           <span>단계</span>
-          <div className="segmented">{([1, 2, 3] as Level[]).map((l) => <button key={l} className={settings.level === l ? 'on' : ''} onClick={() => update({ level: l })}>{LEVEL_NAMES[l]}</button>)}</div>
+          <div className="segmented">{([1, 2, 3, 4] as Level[]).map((l) => <button key={l} className={settings.level === l ? 'on' : ''} onClick={() => update({ level: l })}>{LEVEL_NAMES[l]}</button>)}</div>
         </div>
         <div className="row-setting">
           <span>하루 목표</span>

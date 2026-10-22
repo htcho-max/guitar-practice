@@ -104,3 +104,10 @@ describe('탭 리듬 줄', () => {
     expect(t.events.map((e) => e.beat)).toEqual([0, 1, 2, 3]);
   });
 });
+
+describe('구간 이름 (한글 대괄호)', () => {
+  it('[전주] [후렴] [D.C. …] 는 구간, [Am] 은 코드', () => {
+    const s = parseSong('[전주]\n[D.C. 다시]\n[Am]');
+    expect(s.blocks.map((b) => b.kind)).toEqual(['section', 'section', 'line']);
+  });
+});

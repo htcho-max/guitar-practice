@@ -193,13 +193,15 @@ export function rootString(s: ChordShape, tuning = STANDARD.midi): number {
 }
 
 /** 입문·초급·중급 묶음 (전환 연습 추천에 씀) */
-export const LEVEL_SETS: Record<1 | 2 | 3, string[]> = {
+export const LEVEL_SETS: Record<1 | 2 | 3 | 4, string[]> = {
+  4: ['Dmaj7', 'Gmaj7', 'F#m7', 'Bm7', 'E7sus4', 'A7sus4', 'C9', 'D9', 'Am7b5', 'Bdim7', 'Caug', 'G6', 'Cadd9', 'Eadd9'],
   1: ['C', 'G', 'D', 'Em', 'Am', 'E', 'A', 'Dm'],
   2: ['F', 'G7', 'C7', 'D7', 'E7', 'A7', 'B7', 'Am7', 'Em7', 'Dm7', 'Cmaj7', 'Fmaj7', 'Dsus4', 'Asus2', 'Cadd9', 'G/B'],
   3: ['Bm', 'F#m', 'Bb', 'Cm', 'Gm', 'C#m', 'Ab', 'Eb', 'F#', 'B', 'Fm', 'Bbm', 'D/F#', 'Aadd9'],
 };
 /** 단계별 전환 연습 쌍 (쉬운 것부터) */
-export const CHANGE_PAIRS: Record<1 | 2 | 3, [string, string][]> = {
+export const CHANGE_PAIRS: Record<1 | 2 | 3 | 4, [string, string][]> = {
+  4: [['Cmaj7', 'Am7'], ['Dmaj7', 'F#m7'], ['Gmaj7', 'Bm7'], ['Bm7', 'E7sus4'], ['C9', 'F'], ['Am7b5', 'D7'], ['Caug', 'C'], ['G6', 'Cadd9'], ['Dmaj7', 'Bm7'], ['Eadd9', 'A']],
   1: [['Em', 'G'], ['C', 'G'], ['G', 'D'], ['A', 'D'], ['Am', 'E'], ['C', 'Am'], ['D', 'Em'], ['Am', 'Dm'], ['E', 'A'], ['C', 'D']],
   2: [['C', 'F'], ['Am', 'F'], ['G', 'G7'], ['C', 'C7'], ['D', 'D7'], ['E', 'B7'], ['Cmaj7', 'Fmaj7'], ['G', 'Cadd9'], ['G', 'G/B'], ['Dsus4', 'D']],
   3: [['G', 'Bm'], ['D', 'F#m'], ['Bm', 'G'], ['F', 'Bb'], ['Cm', 'Gm'], ['A', 'C#m'], ['Eb', 'Ab'], ['Em', 'Bm'], ['C', 'D/F#'], ['F#m', 'Bm']],

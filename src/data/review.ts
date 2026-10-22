@@ -45,4 +45,4 @@ export async function allReviews(): Promise<ReviewRow[]> {
 }
 
 /** 단계별 1분 전환 목표 (번) */
-export const CHANGE_TARGET: Record<1 | 2 | 3, number> = { 1: 30, 2: 40, 3: 50 };
+export const CHANGE_TARGET: Record<1 | 2 | 3 | 4, number> = { 1: 30, 2: 40, 3: 50, 4: 60 };

@@ -5,3 +5,4 @@ scripts/*.png
 scripts/*.log
 *.tsbuildinfo
 tests/local/
+!scripts/test-leadsheet.musicxml

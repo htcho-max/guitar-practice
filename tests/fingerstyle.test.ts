@@ -25,8 +25,8 @@ describe('연습곡 편곡', () => {
       const spans = chordSpans(t.chords, t.beats);
       expect(mel.beats, '멜로디 박 = 코드 박').toBe(spans.reduce((a, c) => a + c.dur, 0));
       expect(mel.beats % t.beats).toBe(0);
-      for (const style of [1, 2, 3, 4] as const) {
-        const a = arrange(mel.notes, spans, t.beats, style);
+      for (const [style, octave] of [[1, 'auto'], [2, 'auto'], [3, 'auto'], [4, 'auto'], [5, 'auto'], [6, 'auto'], [2, 'high'], [4, 'high'], [6, 'high']] as const) {
+        const a = arrange(mel.notes, spans, t.beats, style, { octave });
         expect(a.warnings, `${t.id} ${style}`).toEqual([]);
         // 멜로디 음은 모두 나옴
         expect(a.events.flatMap((e) => e.notes).filter((n) => n.voice === 'mel')).toHaveLength(mel.notes.filter((n) => n.midi !== null).length);
@@ -34,16 +34,24 @@ describe('연습곡 편곡', () => {
           const mel1 = e.notes.find((n) => n.voice === 'mel');
           if (mel1) for (const n of e.notes) if (n.voice !== 'mel') expect(n.midi, `${t.id} s${style} ${e.beat}`).toBeLessThan(mel1.midi);
           expect(new Set(e.notes.map((n) => n.string)).size).toBe(e.notes.length);
-          for (const n of e.notes) expect(STANDARD.midi[n.string] + n.fret).toBe(n.midi);
+          for (const n of e.notes) expect(STANDARD.midi[n.string] + (n.harm ? ({ 12: 12, 7: 19, 5: 24 } as Record<number, number>)[n.fret] : n.fret)).toBe(n.midi);
+          // 한 손 폭: 짚는 음(개방·하모닉스 빼고)이 5칸 안
+          const fr = e.notes.filter((n) => n.fret > 0 && !n.harm).map((n) => n.fret);
+          if (fr.length > 1) expect(Math.max(...fr) - Math.min(...fr), `${t.id} s${style} ${octave} ${e.beat} 손 폭`).toBeLessThanOrEqual(5);
         }
         // 1번 박마다 베이스
-        for (let b = 0; b < a.beats; b += t.beats) expect(a.events.find((e) => Math.abs(e.beat - b) < 1e-6)?.notes.some((n) => n.voice === 'bass'), `${t.id} s${style} 마디 ${b / t.beats + 1}`).toBe(true);
+        for (let b = 0; b < a.beats; b += t.beats) expect(a.events.find((e) => Math.abs(e.beat - b) < 1e-6)?.notes.some((n) => n.voice === 'bass'), `${t.id} s${style} ${octave} 마디 ${b / t.beats + 1}`).toBe(true);
+        if (octave === 'high') expect(a.maxFret, `${t.id} 하이 포지션`).toBeGreaterThanOrEqual(7);
         const text = toSongText(a, { title: t.title });
         const song = parseSong(text);
         const tl = buildTimeline(song);
         expect(tl.beats, `${t.id} s${style} 탭 박`).toBe(a.beats);
         const tabBeats = tl.items.filter((i) => i.kind === 'tab').map((i) => i.beat);
-        expect(tabBeats, `${t.id} s${style}`).toEqual(a.events.map((e) => e.beat));
+        expect(tabBeats, `${t.id} s${style} ${octave}`).toEqual(a.events.map((e) => e.beat));
+        // 하모닉스·퍼커시브도 탭 글로 살아남음
+        const tabNotes = tl.items.filter((i) => i.kind === 'tab').flatMap((i) => (i as { notes: { harm?: boolean; dead?: boolean }[] }).notes);
+        expect(tabNotes.filter((n) => n.harm).length).toBe(a.events.flatMap((e) => e.notes).filter((n) => n.harm).length);
+        if (style >= 5) expect(tabNotes.some((n) => n.dead)).toBe(true);
       }
     });
   }

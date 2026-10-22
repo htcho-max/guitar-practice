@@ -3,11 +3,12 @@ import { defaultStrum } from './timeline';
 import { shapeMidis, chordPcs, type ChordShape } from '../guitar/chords';
 import { patternById, realize } from '../finger/patterns';
 import { parseChord } from '../guitar/symbols';
+import { HARM_SEMIS } from '../fingerstyle/arrange';
 
 export type Vis = { block: number; seg?: number; event?: number };
 export type Sound =
   | { kind: 'strum'; midis: (number | null)[]; dir: 'down' | 'up'; vel: number }
-  | { kind: 'notes'; notes: { midi: number; string: number }[]; vel: number }
+  | { kind: 'notes'; notes: { midi: number; string: number; harm?: boolean }[]; vel: number }
   | { kind: 'chuck' } | { kind: 'hit' };
 export interface PlanEvent {
   beat: number;
@@ -44,10 +45,10 @@ export function buildPlan(tl: Timeline, o: PlanOpts): PlanEvent[] {
   for (const it of tl.items) {
     if (it.kind === 'tab') {
       const live = it.notes.filter((n) => !n.dead);
-      const notes = live.map((n) => ({ midi: o.tuning[n.string] + n.fret + o.tabShift, string: n.string }));
+      const notes = live.map((n) => ({ midi: o.tuning[n.string] + (n.harm ? HARM_SEMIS[n.fret] ?? 12 : n.fret) + o.tabShift, string: n.string, harm: n.harm }));
       out.push({
         beat: it.beat, vis: { block: it.block, event: it.event },
-        sound: notes.length ? { kind: 'notes', notes, vel: 0.8 } : { kind: 'chuck' },
+        sound: notes.length ? { kind: 'notes', notes, vel: 0.8 } : it.notes.length <= 2 ? { kind: 'hit' } : { kind: 'chuck' },
         expect: { pcs: [...new Set(notes.map((n) => n.midi % 12))], hit: !notes.length },
       });
       continue;

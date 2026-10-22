@@ -1,4 +1,15 @@
 import { CHORD_TYPES, shapesFor, type ChordShape } from './chords';
+import { findVoicings } from './voicings';
+import { STANDARD } from './tunings';
+
+const isStd = (t?: number[]) => !t || t.every((m, i) => m === STANDARD.midi[i]);
+/** 조율에 맞는 모양들 (표준이면 정해 둔 모양, 아니면 찾아서) */
+export function shapesForTuning(root: number, suffix: string, bass: number | undefined, tuning?: number[]): ChordShape[] {
+  if (isStd(tuning)) return shapesFor(root, suffix, bass);
+  let v = findVoicings(root, suffix, tuning!, bass);
+  if (!v.length && bass !== undefined) v = findVoicings(root, suffix, tuning!);
+  return v;
+}
 
 const LETTER: Record<string, number> = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
 const SHARP = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
@@ -78,7 +89,12 @@ export function transposeName(text: string, semis: number, useFlats?: boolean): 
 }
 
 /** 곡의 코드 이름에 맞는 모양 (분수 코드가 없으면 베이스 없는 모양) */
-export function shapeForSymbol(c: ChordSymbol, prefer = 0): ChordShape | null {
+export function shapeForSymbol(c: ChordSymbol, prefer = 0, tuning?: number[]): ChordShape | null {
+  if (!isStd(tuning)) {
+    let v = shapesForTuning(c.root, c.suffix, c.bass, tuning);
+    if (!v.length) v = shapesForTuning(c.root, c.suffix.startsWith('m') && c.suffix !== 'maj7' ? 'm' : '', undefined, tuning);
+    return v[Math.min(prefer, v.length - 1)] ?? null;
+  }
   let list = shapesFor(c.root, c.suffix, c.bass);
   if (!list.length) list = shapesFor(c.root, c.suffix);
   if (!list.length) list = shapesFor(c.root, c.suffix.startsWith('m') && c.suffix !== 'maj7' ? 'm' : '');

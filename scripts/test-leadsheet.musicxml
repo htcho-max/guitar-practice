@@ -1,0 +1,16 @@
+<?xml version="1.0"?><score-partwise><work><work-title>시험 리드시트</work-title></work>
+<identification><creator type="composer">작곡가</creator></identification>
+<part-list><score-part id="P1"><part-name>Melody</part-name></score-part></part-list>
+<part id="P1">
+<measure number="0" implicit="yes"><attributes><divisions>2</divisions><key><fifths>2</fifths></key><time><beats>4</beats><beat-type>4</beat-type></time></attributes>
+<direction><sound tempo="72"/></direction>
+<note><pitch><step>B</step><octave>3</octave></pitch><duration>1</duration><voice>1</voice></note><note><pitch><step>F</step><alter>1</alter><octave>4</octave></pitch><duration>1</duration><voice>1</voice></note></measure>
+<measure number="1"><harmony><root><root-step>G</root-step></root><kind text="M7">major-seventh</kind></harmony>
+<note><pitch><step>F</step><alter>1</alter><octave>4</octave></pitch><duration>1</duration><voice>1</voice></note><note><pitch><step>F</step><alter>1</alter><octave>4</octave></pitch><duration>1</duration><voice>1</voice></note><note><pitch><step>F</step><alter>1</alter><octave>4</octave></pitch><duration>1</duration><voice>1</voice></note><note><pitch><step>E</step><octave>4</octave></pitch><duration>1</duration><voice>1</voice></note><note><pitch><step>F</step><alter>1</alter><octave>4</octave></pitch><duration>2</duration><voice>1</voice></note><note><rest/><duration>2</duration><voice>1</voice></note></measure>
+<measure number="2"><harmony><root><root-step>F</root-step><root-alter>1</root-alter></root><kind>minor-seventh</kind></harmony>
+<note><pitch><step>E</step><octave>4</octave></pitch><duration>2</duration><voice>1</voice></note><note><chord/><pitch><step>A</step><octave>4</octave></pitch><duration>2</duration><voice>1</voice></note>
+<harmony><root><root-step>B</root-step></root><kind>minor</kind></harmony>
+<note><pitch><step>D</step><octave>4</octave></pitch><duration>3</duration><voice>1</voice><tie type="start"/></note><note><pitch><step>D</step><octave>4</octave></pitch><duration>3</duration><voice>1</voice><tie type="stop"/></note>
+<harmony><root><root-step>D</root-step></root><kind>major</kind><bass><bass-step>F</bass-step><bass-alter>1</bass-alter></bass></harmony>
+</measure>
+</part></score-partwise>

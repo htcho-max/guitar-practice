@@ -21,22 +21,25 @@ import { clampBpm } from '../audio/schedule';
 import { LEVEL_NAMES, type Level } from '../data/settings';
 import { recordReview } from '../data/review';
 import { FingerstylePractice } from './Fingerstyle';
+import { TechniquePractice } from './Technique';
 
 type Pos = { bar: number; slot: number };
 const seq = new Sequencer<Pos>();
 
 export function FingerTab() {
   const req = useMemo(() => takeRequest('finger'), []);
-  const [mode, setMode] = useState<'arp' | 'fs'>(() => req?.mode ?? (localStorage.getItem('guitar-finger-mode') as 'arp' | 'fs') ?? 'fs');
-  const pick = (m: 'arp' | 'fs') => { setMode(m); try { localStorage.setItem('guitar-finger-mode', m); } catch { /* 무시 */ } };
+  type M = 'arp' | 'fs' | 'tech';
+  const [mode, setMode] = useState<M>(() => req?.mode ?? (localStorage.getItem('guitar-finger-mode') as M) ?? 'fs');
+  const pick = (m: M) => { setMode(m); try { localStorage.setItem('guitar-finger-mode', m); } catch { /* 무시 */ } };
   if (req?.tuneId) { try { localStorage.setItem('guitar-fs-tune', req.tuneId); if (req.style) localStorage.setItem('guitar-fs-style', String(req.style)); } catch { /* 무시 */ } }
   return (
     <div className="page">
       <div className="segmented">
         <button className={mode === 'fs' ? 'on' : ''} onClick={() => pick('fs')}>핑거스타일</button>
         <button className={mode === 'arp' ? 'on' : ''} onClick={() => pick('arp')}>아르페지오</button>
+        <button className={mode === 'tech' ? 'on' : ''} onClick={() => pick('tech')}>기법</button>
       </div>
-      {mode === 'fs' ? <FingerstylePractice /> : <ArpeggioPractice req={req} />}
+      {mode === 'fs' ? <FingerstylePractice /> : mode === 'tech' ? <TechniquePractice /> : <ArpeggioPractice req={req} />}
     </div>
   );
 }
@@ -57,7 +60,7 @@ function ArpeggioPractice({ req }: { req: ReturnType<typeof takeRequest<'finger'
   const setBpm = (b: number) => { const n = { ...ladder, [pid]: { bpm: clampBpm(b), streak: 0 } }; setLadder(n); kvSet('finger-ladder', n); };
   const bars = useMemo(() => chords.map((name) => {
     const c = parseChord(name);
-    const shape = c ? shapeForSymbol(c) : null;
+    const shape = c ? shapeForSymbol(c, 0, tuning) : null;
     return { chord: name, steps: shape ? realize(pattern, shape, tuning) : [] as Step[] };
   }), [chords, pattern, tuning]);
   const level = (settings.level ?? 1) as Level;
@@ -71,7 +74,7 @@ function ArpeggioPractice({ req }: { req: ReturnType<typeof takeRequest<'finger'
       <div className="card">
         <div className="card-head"><b>아르페지오 패턴</b>
           <select value={level} onChange={(e) => update({ level: Number(e.target.value) as Level })} aria-label="단계">
-            {([1, 2, 3] as Level[]).map((l) => <option key={l} value={l}>{LEVEL_NAMES[l]}</option>)}
+            {([1, 2, 3, 4] as Level[]).map((l) => <option key={l} value={l}>{LEVEL_NAMES[l]}</option>)}
           </select>
         </div>
         <div className="chips">

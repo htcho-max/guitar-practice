@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { TUNES, tuneById } from '../fingerstyle/tunes';
 import { parseMelody } from '../fingerstyle/melody';
-import { arrange, chordSpans, FS_STYLES, type Arrangement, type FsStyle } from '../fingerstyle/arrange';
+import { arrange, chordSpans, FS_STYLES, type Arrangement, type FsStyle, type OctaveMode } from '../fingerstyle/arrange';
+import { tuningById } from '../guitar/tunings';
 import { toSongText } from '../fingerstyle/ascii';
 import { FsBars, type FsMark } from '../components/FsBars';
 import { matchRun, type Expected, type Heard, type RunResult } from '../finger/score';
@@ -50,7 +51,7 @@ export function FsPlayer({ arr, bpm, setBpm, target, onResult }: { arr: Arrangem
     await synth.ready();
     const evs = arr.events.map((e, i) => ({
       beat: e.beat, data: i,
-      play: (_c: AudioContext, w: number) => e.notes.forEach((n) => { if (!hide.has(n.voice)) synth.note(n.midi, w, n.voice === 'mel' ? 0.95 : n.voice === 'bass' ? 0.6 : 0.45, n.string, n.voice === 'mel' ? 0.7 : 0.45); }),
+      play: (_c: AudioContext, w: number) => { e.notes.forEach((n) => { if (hide.has(n.voice)) return; if (n.harm) synth.harm(n.midi, w, 0.9, n.string); else synth.note(n.midi, w, n.voice === 'mel' ? 0.95 : n.voice === 'bass' ? 0.6 : 0.45, n.string, n.voice === 'mel' ? 0.7 : 0.45); }); if (e.perc && !hide.has('perc')) synth.hit(w, 0.9); },
     }));
     await seq.start(evs, {
       bpm, ...(loop ? { loopBeats: arr.beats } : { endBeats: arr.beats }), meterBeats: arr.beatsPerBar, countIn: 0, click: false,
@@ -102,7 +103,7 @@ export function FsPlayer({ arr, bpm, setBpm, target, onResult }: { arr: Arrangem
     <div className="card">
       <div className="voice-legend">
         <span>들을 소리:</span>
-        {([['mel', '멜로디'], ['bass', '베이스'], ['fill', '채우기']] as const).map(([v, t]) => (
+        {([['mel', '멜로디'], ['bass', '베이스'], ['fill', '채우기'], ['perc', '퍼커시브']] as const).filter(([v]) => v !== 'perc' || arr.events.some((e) => e.perc)).map(([v, t]) => (
           <label key={v} className={v}><input type="checkbox" checked={!hide.has(v)} onChange={() => toggleVoice(v)} disabled={playing} /> {t}</label>
         ))}
       </div>
@@ -146,13 +147,15 @@ export function FingerstylePractice() {
   const [style, setStyle] = useState<FsStyle>(() => (Number(localStorage.getItem('guitar-fs-style')) as FsStyle) || (level >= 3 ? 2 : 1));
   const [ladder, setLadder] = useState<Record<string, { bpm: number; streak: number }>>({});
   const [msg, setMsg] = useState<string | null>(null);
+  const [octave, setOctave] = useState<OctaveMode>(() => (localStorage.getItem('guitar-fs-octave') as OctaveMode) || 'auto');
+  const tuning = tuningById(settings.tuningId).midi;
   const tune = tuneById(tid);
-  const key = `${tid}:${style}`;
+  const key = `${tid}:${style}${octave === 'auto' ? '' : ':' + octave}`;
   const startBpm = Math.max(50, Math.round(tune.tempo * 0.7 / 4) * 4);
   const bpm = ladder[key]?.bpm ?? startBpm;
   useEffect(() => { kvGet('fs-ladder', {}).then(setLadder); }, []);
-  useEffect(() => { try { localStorage.setItem('guitar-fs-tune', tid); localStorage.setItem('guitar-fs-style', String(style)); } catch { /* 무시 */ } setMsg(null); }, [tid, style]);
-  const arr = useMemo(() => arrange(parseMelody(tune.melody).notes, chordSpans(tune.chords, tune.beats), tune.beats, style), [tune, style]);
+  useEffect(() => { try { localStorage.setItem('guitar-fs-tune', tid); localStorage.setItem('guitar-fs-style', String(style)); localStorage.setItem('guitar-fs-octave', octave); } catch { /* 무시 */ } setMsg(null); }, [tid, style, octave]);
+  const arr = useMemo(() => arrange(parseMelody(tune.melody).notes, chordSpans(tune.chords, tune.beats), tune.beats, style, { octave, tuning }), [tune, style, octave, tuning]);
   const setBpm = (b: number) => { const n = { ...ladder, [key]: { bpm: clampBpm(b), streak: 0 } }; setLadder(n); kvSet('fs-ladder', n); };
   const st = FS_STYLES.find((s) => s.id === style)!;
   return (
@@ -163,10 +166,12 @@ export function FingerstylePractice() {
         <div className="card-head"><b>단계</b></div>
         <div className="chips">{FS_STYLES.map((s) => <button key={s.id} className={s.id === style ? 'chip on' : 'chip'} onClick={() => setStyle(s.id)}>{s.name}</button>)}</div>
         <p className="hint">{st.tip}</p>
+        <OctavePicker value={octave} onChange={setOctave} />
+        {arr.warnings.length > 0 && <p className="hint">{arr.warnings.join(' · ')}</p>}
         <div className="row-setting small">
-          <span className="muted">{tune.title} · {tune.credit}{arr.shift ? ` · 멜로디 ${arr.shift > 0 ? '한 옥타브 올림' : '한 옥타브 내림'}` : ''}</span>
+          <span className="muted">{tune.title} · {tune.credit} · 최고 {arr.maxFret}프렛</span>
           <button className="link small" onClick={async () => {
-            const r = await addSong(toSongText(arr, { title: `${tune.title} (핑거스타일 ${style}단계)`, artist: tune.credit, tempo: tune.tempo, note: st.name }));
+            const r = await addSong(toSongText(arr, { title: `${tune.title} (핑거스타일 ${style}단계${octave === 'high' ? ' · 하이' : ''})`, artist: tune.credit, tempo: tune.tempo, note: st.name }));
             setMsg('내 곡에 저장했어요.');
             setTimeout(() => navigate({ tab: 'song', songId: r.id }), 600);
           }}>내 곡에 탭으로 저장</button>
@@ -184,5 +189,17 @@ export function FingerstylePractice() {
         return { up: next.bpm > prev.bpm };
       }} />
     </>
+  );
+}
+
+/** 멜로디 옥타브: 자동 / 하이 포지션 / 낮게 */
+export function OctavePicker({ value, onChange }: { value: OctaveMode; onChange: (v: OctaveMode) => void }) {
+  return (
+    <div className="row-setting small">
+      <span>멜로디</span>
+      <div className="segmented small grow">
+        {([['auto', '자동'], ['high', '옥타브 위 (하이 포지션)'], ['low', '낮게']] as const).map(([v, t]) => <button key={v} className={value === v ? 'on' : ''} onClick={() => onChange(v)}>{t}</button>)}
+      </div>
+    </div>
   );
 }

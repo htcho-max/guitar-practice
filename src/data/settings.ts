@@ -1,7 +1,9 @@
 import type { ClickSound } from '../audio/metronome';
 
-export type Level = 1 | 2 | 3;
-export const LEVEL_NAMES: Record<Level, string> = { 1: '입문', 2: '초급', 3: '중급' };
+export type Level = 1 | 2 | 3 | 4;
+export const LEVEL_NAMES: Record<Level, string> = { 1: '입문', 2: '초급', 3: '중급', 4: '고급' };
+/** 내용이 1~3단계까지만 있는 곳에서 쓰는 단계 */
+export const lv3 = (l: Level | null | undefined): 1 | 2 | 3 => (Math.min(3, l ?? 1) as 1 | 2 | 3);
 
 export interface Settings {
   /** 처음 고르기 전에는 null */

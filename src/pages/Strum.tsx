@@ -40,7 +40,7 @@ export function StrumPractice({ initial }: { initial?: string }) {
   useEffect(() => { kvGet('strum-ladder', {}).then(setLadder); }, []);
   useEffect(() => { try { localStorage.setItem('guitar-strum-pattern', pid); localStorage.setItem('guitar-strum-chords', JSON.stringify(chords)); } catch { /* 무시 */ } }, [pid, chords]);
   const setBpm = (b: number) => { const n = { ...ladder, [pid]: { bpm: clampBpm(b), streak: 0 } }; setLadder(n); kvSet('strum-ladder', n); };
-  const shapes = chords.map((n) => { const c = parseChord(n); return c ? shapeForSymbol(c) : null; });
+  const shapes = chords.map((n) => { const c = parseChord(n); return c ? shapeForSymbol(c, 0, tuning) : null; });
 
   return (
     <>

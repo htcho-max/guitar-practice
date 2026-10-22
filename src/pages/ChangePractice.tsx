@@ -19,9 +19,9 @@ import { recordReview, CHANGE_TARGET } from '../data/review';
 
 const seq = new Sequencer<number>();
 
-function shapeOf(name: string): ChordShape | null {
+function shapeOf(name: string, tuning?: number[]): ChordShape | null {
   const c = parseChord(name);
-  return c ? shapeForSymbol(c) : null;
+  return c ? shapeForSymbol(c, 0, tuning) : null;
 }
 
 export function ChangePractice({ initialPair }: { initialPair?: [string, string] }) {
@@ -31,7 +31,8 @@ export function ChangePractice({ initialPair }: { initialPair?: [string, string]
   const [mode, setMode] = useState<'beat' | 'minute'>(() => (localStorage.getItem('guitar-change-mode') as 'beat' | 'minute') || 'minute');
   const [custom, setCustom] = useState('');
   useEffect(() => { try { localStorage.setItem('guitar-change-pair', JSON.stringify(pair)); localStorage.setItem('guitar-change-mode', mode); } catch { /* 무시 */ } }, [pair, mode]);
-  const shapes = pair.map(shapeOf);
+  const tuningMidi = tuningById(settings.tuningId).midi;
+  const shapes = pair.map((n) => shapeOf(n, tuningMidi));
   const bad = shapes.some((s) => !s);
   const applyCustom = () => {
     const names = custom.split(/[\s,→>-]+/).filter(Boolean);

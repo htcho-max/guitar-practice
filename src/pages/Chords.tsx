@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { CHORD_TYPES, shapesFor, shapeMidis, chordPcs, shapeName, LEVEL_SETS, type ChordShape } from '../guitar/chords';
-import { parseChord } from '../guitar/symbols';
+import { parseChord, shapesForTuning } from '../guitar/symbols';
 import { tuningById } from '../guitar/tunings';
 import { PC_NAMES } from '../audio/notes';
 import { ChordDiagram, type StringMark } from '../components/ChordDiagram';
@@ -54,8 +54,8 @@ function ChordDict({ initial }: { initial?: string }) {
   const [idx, setIdx] = useState(0);
   const [check, setCheck] = useState<'off' | 'strum' | 'strings'>('off');
   useEffect(() => { try { localStorage.setItem('guitar-dict-root', String(root)); localStorage.setItem('guitar-dict-suffix', suffix); } catch { /* 무시 */ } setIdx(0); }, [root, suffix, bass]);
-  const shapes = shapesFor(root, suffix, bass);
-  const list = shapes.length ? shapes : shapesFor(root, suffix);
+  const shapes = shapesForTuning(root, suffix, bass, tuning);
+  const list = shapes.length ? shapes : shapesForTuning(root, suffix, undefined, tuning);
   const shape = list[Math.min(idx, list.length - 1)];
   const isStd = settings.tuningId === 'std';
   const level = settings.level ?? 1;
@@ -98,7 +98,7 @@ function ChordDict({ initial }: { initial?: string }) {
           <div className="segmented small">
             {(['finger', 'degree', 'note'] as const).map((l) => <button key={l} className={settings.chordLabels === l ? 'on' : ''} onClick={() => update({ chordLabels: l })}>{{ finger: '손가락', degree: '도수', note: '음 이름' }[l]}</button>)}
           </div>
-          {!isStd && <p className="hint">지금 조율({tuningById(settings.tuningId).name})로 음을 계산해요. 코드 모양은 표준 조율 기준이라 소리가 달라질 수 있어요.</p>}
+          {!isStd && <p className="hint">지금 조율({tuningById(settings.tuningId).name})로 음을 계산해요. 이 조율에 맞는 자리를 찾아서 보여 줘요 (손가락 번호는 추천).</p>}
         </div>
       ) : <p className="muted">이 코드는 아직 모양이 없어요.</p>}
       {shape && <ChordCheck shape={shape} tuning={tuning} mode={check} setMode={setCheck} />}
