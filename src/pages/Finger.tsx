@@ -17,6 +17,7 @@ import { db, kvGet, kvSet, type FingerRun } from '../data/db';
 import { localDate } from '../data/dates';
 import { clampBpm } from '../audio/schedule';
 import { LEVEL_NAMES, type Level } from '../data/settings';
+import { recordReview } from '../data/review';
 
 type Pos = { bar: number; slot: number };
 const seq = new Sequencer<Pos>();
@@ -85,6 +86,7 @@ export function FingerTab() {
           setLadder(n); kvSet('finger-ladder', n);
           const row: FingerRun = { patternId: pid, chords: chords.join(' '), bpm: bpmState, hitRate: r.hitRate, pitchRate: r.pitchRate, meanMs: r.meanMs, sdMs: r.sdMs, passed: ok, date: localDate(), at: Date.now() };
           db.fingerRuns.add(row).catch(() => {});
+          recordReview({ key: `finger:${pid}:${chords.join(' ')}`, kind: 'finger', label: `핑거 ${pattern.name} · ${chords.join(' ')}`, nav: { tab: 'finger', patternId: pid, chords }, note: `${bpmState} BPM · 친 음 ${Math.round(r.hitRate * 100)}%` }, ok);
           return { ok, up: next.bpm > prev.bpm, streak: next.streak };
         }} ladderStreak={ladder[pid]?.streak ?? 0} />
     </div>

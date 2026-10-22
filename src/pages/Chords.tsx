@@ -110,7 +110,7 @@ function ChordCheck({ shape, tuning, mode, setMode }: { shape: ChordShape; tunin
   const { settings } = useSettings();
   const { on, error, start, stop } = useMic({ reading: false });
   const pcs = chordPcs(shape.root, shape.suffix);
-  const { verdict, listening } = useChordCheck(on && mode === 'strum', pcs, shape.bass);
+  const { verdict, listening } = useChordCheck(on && mode === 'strum', pcs, shape.bass, shapeName(shape));
   const midis = shapeMidis(shape, tuning);
   const strings = useStringCheck(on && mode === 'strings', midis, settings.a4);
   usePracticeTimer('chord', on);

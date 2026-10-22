@@ -8,8 +8,12 @@ import { LEVEL_NAMES, type Level } from '../data/settings';
 import { CHANGE_PAIRS } from '../guitar/chords';
 import { PATTERNS, PROGRESSIONS, patternById } from '../finger/patterns';
 import { STRUMS, strumById } from '../strum/patterns';
+import { dueReviews, allReviews, onReviewChange } from '../data/review';
+import { weeklyMinutes, changeProgress, patternProgress } from '../data/trends';
+import type { ReviewRow } from '../data/db';
+import type { NavRequest } from '../state/navigate';
 
-const KIND_NAMES: Record<string, string> = { tuner: '튜닝', metronome: '메트로놈', chord: '코드 잡기', change: '코드 전환', strum: '스트럼', finger: '핑거', song: '곡' };
+const KIND_NAMES: Record<string, string> = { tuner: '튜닝', metronome: '메트로놈', chord: '코드 잡기', change: '코드 전환', strum: '스트럼', fretboard: '지판', finger: '핑거', song: '곡' };
 
 export function Today({ openSettings }: { openSettings: () => void }) {
   const { settings, update } = useSettings();
@@ -19,6 +23,11 @@ export function Today({ openSettings }: { openSettings: () => void }) {
   const [lastSong, setLastSong] = useState<SongRow | null>(null);
   const [ladder, setLadder] = useState<Record<string, { bpm: number }>>({});
   const [strumLadder, setStrumLadder] = useState<Record<string, { bpm: number }>>({});
+  const [due, setDue] = useState<ReviewRow[]>([]);
+  const [reviewCount, setReviewCount] = useState(0);
+  const [allChanges, setAllChanges] = useState<ChangeRow[]>([]);
+  const [allRuns, setAllRuns] = useState<FingerRun[]>([]);
+  const [showTrend, setShowTrend] = useState(false);
   const today = localDate();
   const load = () => {
     const from = addDays(today, -60);
@@ -28,8 +37,12 @@ export function Today({ openSettings }: { openSettings: () => void }) {
     db.songs.orderBy('openedAt').last().then((s) => setLastSong(s && s.openedAt ? s : null)).catch(() => {});
     kvGet('finger-ladder', {}).then(setLadder);
     kvGet('strum-ladder', {}).then(setStrumLadder);
+    dueReviews().then(setDue);
+    allReviews().then((r) => setReviewCount(r.length));
+    db.changes.toArray().then(setAllChanges).catch(() => {});
+    db.fingerRuns.toArray().then(setAllRuns).catch(() => {});
   };
-  useEffect(() => { load(); return onPracticeSaved(load); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { load(); const a = onPracticeSaved(load); const b = onReviewChange(load); return () => { a(); b(); }; }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!settings.level) return <LevelPicker onPick={(l) => update({ level: l })} />;
   const level = settings.level;
@@ -57,6 +70,7 @@ export function Today({ openSettings }: { openSettings: () => void }) {
     { key: 'change', title: `코드 전환 1분: ${pair[0]} ↔ ${pair[1]}`, sub: bestOf(pair.join('|')) >= 0 ? `최고 ${bestOf(pair.join('|'))}번` : '처음', go: () => navigate({ tab: 'chord', mode: 'change', pair }) },
     { key: 'strum', title: `스트럼: ${strum.name}`, sub: `${strumLadder[strum.id]?.bpm ?? strum.bpm[0]} BPM`, go: () => navigate({ tab: 'chord', mode: 'strum', strumId: strum.id }) },
     { key: 'finger', title: `핑거: ${pat.name}`, sub: `${prog.chords.join(' – ')} · ${ladder[pat.id]?.bpm ?? pat.bpm[0]} BPM`, go: () => navigate({ tab: 'finger', patternId: pat.id, chords: prog.chords }) },
+    ...(level >= 2 ? [{ key: 'fretboard', title: level === 2 ? '지판 음 이름 외우기' : '스케일 모양', sub: level === 2 ? '20문제 · 0~12프렛' : '펜타토닉 한 포지션 따라 치기', go: () => navigate({ tab: 'tuner', view: 'fretboard', sub: level === 2 ? 'names' : 'scales' }) }] : []),
     { key: 'song', title: lastSong ? `곡: ${lastSong.title}` : '내 곡 넣기', sub: lastSong ? '이어서 연습' : '코드 악보·탭 붙여 넣기', go: () => navigate({ tab: 'song', songId: lastSong?.id }) },
   ];
   const recentRuns = runs.slice().sort((a, b) => b.at - a.at).slice(0, 4);
@@ -74,6 +88,21 @@ export function Today({ openSettings }: { openSettings: () => void }) {
         <div className="progress"><div style={{ width: `${Math.min(100, (todaySec / goal) * 100)}%` }} /></div>
         {Object.keys(byKind).length > 0 && <div className="muted small">{Object.entries(byKind).map(([k, s]) => `${KIND_NAMES[k] ?? k} ${formatDuration(s)}`).join(' · ')}</div>}
       </div>
+      {due.length > 0 && (
+        <div className="card review-card" data-testid="review-card">
+          <div className="card-head"><b>복습 {due.length}개</b><span className="muted small">지난번에 약했던 것 · 통과하면 간격이 늘어요</span></div>
+          <ul className="plain">
+            {due.slice(0, 6).map((r) => (
+              <li key={r.key}>
+                <button className="review-item" onClick={() => navigate(r.nav as NavRequest)}>
+                  <span className="grow"><b>{r.label}</b><span className="muted small">{r.note} · 상자 {r.box}/5</span></span>
+                  <span className="muted">›</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       <h3>오늘 할 일</h3>
       <ol className="plan">
         {plan.map((p, i) => (
@@ -95,6 +124,8 @@ export function Today({ openSettings }: { openSettings: () => void }) {
           </div>
         ))}
       </div>
+      <button className="link small" onClick={() => setShowTrend(!showTrend)} data-testid="trend-toggle">{showTrend ? '▾' : '▸'} 주별 추이 · 발전 기록{reviewCount ? ` · 복습함 ${reviewCount}개` : ''}</button>
+      {showTrend && <Trends rows={rows} today={today} changes={allChanges} runs={allRuns} goal={settings.goalMin} />}
       {recentRuns.length > 0 && (
         <>
           <h3>최근 따라 치기</h3>
@@ -124,6 +155,30 @@ function LevelPicker({ onPick }: { onPick: (l: Level) => void }) {
           <b>{it.title}</b><span className="muted small">{it.sub}</span>
         </button>
       ))}
+    </div>
+  );
+}
+
+function Trends({ rows, today, changes, runs, goal }: { rows: PracticeRow[]; today: string; changes: ChangeRow[]; runs: FingerRun[]; goal: number }) {
+  const weeks = weeklyMinutes(rows, today, 8);
+  const max = Math.max(goal * 7, ...weeks.map((w) => w.min), 1);
+  const cp = changeProgress(changes).slice(0, 4);
+  const pp = patternProgress(runs, (id) => (id.startsWith('strum:') ? `스트럼 ${strumById(id.slice(6)).name}` : patternById(id).name)).slice(0, 4);
+  return (
+    <div className="card" data-testid="trends">
+      <b>주별 연습 시간 (분)</b>
+      <div className="weeks8">
+        {weeks.map((w) => (
+          <div key={w.week} className="week-col">
+            <span className="small">{w.min || ''}</span>
+            <div className="week-bar"><div style={{ height: `${(w.min / max) * 100}%` }} className={w.min >= goal * 7 ? 'met' : ''} /></div>
+            <span className="muted small">{Number(w.week.slice(5, 7))}/{Number(w.week.slice(8))}</span>
+          </div>
+        ))}
+      </div>
+      {cp.length > 0 && <><b className="small">1분 전환 (처음 → 최고)</b><ul className="plain small">{cp.map((p) => <li key={p.label}>{p.label}: {p.first} → <b>{p.best}</b>번 <span className="muted">({p.n}번 함)</span></li>)}</ul></>}
+      {pp.length > 0 && <><b className="small">패턴 템포 (처음 → 통과한 최고)</b><ul className="plain small">{pp.map((p) => <li key={p.label}>{p.label}: {p.first} → <b>{p.best || '아직'}</b>{p.best ? ' BPM' : ''} <span className="muted">({p.n}번)</span></li>)}</ul></>}
+      {!cp.length && !pp.length && <span className="muted small">1분 전환이나 따라 치기를 하면 발전 기록이 쌓여요.</span>}
     </div>
   );
 }

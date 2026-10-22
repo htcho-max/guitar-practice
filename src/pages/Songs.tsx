@@ -12,6 +12,7 @@ import { recorder } from '../audio/recorder';
 import { useMic } from '../state/useMic';
 import { localDate } from '../data/dates';
 import { Recordings } from '../components/Recordings';
+import { recordReview } from '../data/review';
 import { parseChord, shapeForSymbol, transposeName } from '../guitar/symbols';
 import { shapeMidis, type ChordShape } from '../guitar/chords';
 import { tuningById } from '../guitar/tunings';
@@ -61,7 +62,7 @@ export function SongsTab() {
     return <SongEditor song={editing === 'new' ? null : editing} onClose={(id) => { setEditing(null); load(); if (id) setOpenId(id); }} />;
   }
   if (open) {
-    return <SongView key={open.id} song={open} onBack={() => setOpenId(null)} onEdit={() => setEditing(open)} onChange={load} />;
+    return <SongView key={open.id} initialRange={req?.songId === open.id ? req.range : undefined} song={open} onBack={() => setOpenId(null)} onEdit={() => setEditing(open)} onChange={load} />;
   }
   const list = (songs ?? []).filter((s) => !q || (s.title + s.artist).toLowerCase().includes(q.toLowerCase()));
   return (
@@ -138,7 +139,7 @@ function playSound(snd: Sound, w: number) {
 type Marks = Record<string, 'ok' | 'close' | 'wrong' | 'miss'>;
 interface FollowResult { r: RunResult; chords: ChordVerdict[]; marks: Marks }
 
-function SongView({ song, onBack, onEdit }: { song: SongRow; onBack: () => void; onEdit: () => void; onChange: () => void }) {
+function SongView({ song, onBack, onEdit, initialRange }: { song: SongRow; onBack: () => void; onEdit: () => void; onChange: () => void; initialRange?: [number, number] }) {
   const { settings } = useSettings();
   const tuning = tuningById(settings.tuningId).midi;
   const parsed = useMemo(() => parseSong(song.text), [song.text]);
@@ -158,7 +159,7 @@ function SongView({ song, onBack, onEdit }: { song: SongRow; onBack: () => void;
   const [diagram, setDiagram] = useState<string | null>(null);
   // 구간: 고르는 중이면 블록을 눌러 시작·끝
   const [picking, setPicking] = useState(false);
-  const [range, setRange] = useState<[number, number] | null>(null);
+  const [range, setRange] = useState<[number, number] | null>(initialRange ?? null);
   const [loop, setLoop] = useState(true);
   const [rec, setRec] = useState(false);
   const [recTick, setRecTick] = useState(0);
@@ -283,6 +284,9 @@ function SongView({ song, onBack, onEdit }: { song: SongRow; onBack: () => void;
           if (v?.event !== undefined) marks[`${v.block}:e${v.event}`] = !s.heard ? 'miss' : s.pitchOk === false ? 'wrong' : 'ok';
         });
         setResult({ r, chords: [...verdicts.values()], marks });
+        const vs = [...verdicts.values()];
+        const chordOk = vs.length ? vs.filter((v) => v.verdict === 'ok').length / vs.length : 1;
+        recordReview({ key: `song:${song.id}:${range ? range.join('-') : 'all'}`, kind: 'song', label: `${song.title} · ${rangeLabel}`, nav: { tab: 'song', songId: song.id, range: range ?? undefined }, note: `박 ${Math.round(r.hitRate * 100)}% · 코드 ${Math.round(chordOk * 100)}%` }, r.hitRate >= 0.85 && chordOk >= 0.8);
         setMode('idle'); setNow(null); setCount(null);
       }, 500),
     });

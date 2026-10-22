@@ -1,4 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { FretTrainer } from './FretTrainer';
+import { ScalePractice } from './ScalePractice';
 import { useSettings } from '../state/settings';
 import { useMic } from '../state/useMic';
 import { usePracticeTimer } from '../state/practice';
@@ -10,16 +12,29 @@ import { synth } from '../audio/synth';
 import { Metronome } from './Metronome';
 import { takeRequest } from '../state/navigate';
 
+type View = 'tuner' | 'metronome' | 'fretboard';
 export function TunerTab() {
-  const [view, setView] = useState<'tuner' | 'metronome'>(() => takeRequest('tuner')?.view ?? (localStorage.getItem('guitar-tuner-view') as 'tuner' | 'metronome') ?? 'tuner');
-  const pick = (v: 'tuner' | 'metronome') => { setView(v); try { localStorage.setItem('guitar-tuner-view', v); } catch { /* 무시 */ } };
+  const req = useMemo(() => takeRequest('tuner'), []);
+  const [view, setView] = useState<View>(() => req?.view ?? (localStorage.getItem('guitar-tuner-view') as View) ?? 'tuner');
+  const [sub, setSub] = useState<'names' | 'scales'>(() => req?.sub ?? (localStorage.getItem('guitar-fret-sub') as 'names' | 'scales') ?? 'names');
+  const pick = (v: View) => { setView(v); try { localStorage.setItem('guitar-tuner-view', v); } catch { /* 무시 */ } };
+  const pickSub = (v: 'names' | 'scales') => { setSub(v); try { localStorage.setItem('guitar-fret-sub', v); } catch { /* 무시 */ } };
   return (
     <div className="page">
       <div className="segmented" role="tablist">
         <button className={view === 'tuner' ? 'on' : ''} onClick={() => pick('tuner')}>튜너</button>
         <button className={view === 'metronome' ? 'on' : ''} onClick={() => pick('metronome')}>메트로놈</button>
+        <button className={view === 'fretboard' ? 'on' : ''} onClick={() => pick('fretboard')}>지판</button>
       </div>
-      {view === 'tuner' ? <Tuner /> : <Metronome />}
+      {view === 'tuner' ? <Tuner /> : view === 'metronome' ? <Metronome /> : (
+        <>
+          <div className="segmented small">
+            <button className={sub === 'names' ? 'on' : ''} onClick={() => pickSub('names')}>음 이름 외우기</button>
+            <button className={sub === 'scales' ? 'on' : ''} onClick={() => pickSub('scales')}>스케일 모양</button>
+          </div>
+          {sub === 'names' ? <FretTrainer /> : <ScalePractice />}
+        </>
+      )}
     </div>
   );
 }

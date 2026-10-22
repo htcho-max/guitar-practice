@@ -1,6 +1,6 @@
 import { db } from './db';
 
-const TABLES = ['practice', 'changes', 'fingerRuns', 'songs', 'kv'] as const; // 녹음은 크기 때문에 백업에서 뺌
+const TABLES = ['practice', 'changes', 'fingerRuns', 'songs', 'kv', 'reviews'] as const; // 녹음은 크기 때문에 백업에서 뺌
 export interface Backup { app: 'guitar-practice'; version: 1; exportedAt: string; tables: Record<string, unknown[]> }
 
 export async function makeBackup(): Promise<Blob> {
@@ -30,7 +30,7 @@ export async function restoreBackup(text: string): Promise<Record<string, number
   const data = JSON.parse(text) as Partial<Backup>;
   if (data.app !== 'guitar-practice' || !data.tables) throw new Error('기타 연습 도우미 백업 파일이 아니에요.');
   const counts: Record<string, number> = {};
-  await db.transaction('rw', [db.practice, db.changes, db.fingerRuns, db.songs, db.kv], async () => {
+  await db.transaction('rw', [db.practice, db.changes, db.fingerRuns, db.songs, db.kv, db.reviews], async () => {
     for (const t of TABLES) {
       const rows = data.tables![t] ?? [];
       const table = (db as unknown as Record<string, { clear: () => Promise<void>; bulkPut: (r: unknown[]) => Promise<unknown> }>)[t];

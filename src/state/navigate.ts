@@ -3,8 +3,8 @@ export type TabId = 'today' | 'chord' | 'finger' | 'song' | 'tuner';
 export type NavRequest =
   | { tab: 'chord'; mode: 'dict' | 'change' | 'strum'; chord?: string; pair?: [string, string]; strumId?: string }
   | { tab: 'finger'; patternId?: string; chords?: string[] }
-  | { tab: 'song'; songId?: string }
-  | { tab: 'tuner'; view?: 'tuner' | 'metronome' }
+  | { tab: 'song'; songId?: string; range?: [number, number] }
+  | { tab: 'tuner'; view?: 'tuner' | 'metronome' | 'fretboard'; sub?: 'names' | 'scales' }
   | { tab: 'today' };
 
 let pending: NavRequest | null = null;

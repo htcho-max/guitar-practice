@@ -19,6 +19,7 @@ import { setBusy } from '../state/busy';
 import { db, kvGet, kvSet } from '../data/db';
 import { localDate } from '../data/dates';
 import { clampBpm } from '../audio/schedule';
+import { recordReview } from '../data/review';
 
 type Pos = { bar: number; slot: number };
 const seq = new Sequencer<Pos>();
@@ -61,6 +62,7 @@ export function StrumPractice({ initial }: { initial?: string }) {
           const n = { ...ladder, [pid]: next };
           setLadder(n); kvSet('strum-ladder', n);
           db.fingerRuns.add({ patternId: 'strum:' + pid, chords: chords.join(' '), bpm, hitRate: r.hitRate, pitchRate: 1, meanMs: r.meanMs, sdMs: r.sdMs, passed: ok, date: localDate(), at: Date.now() }).catch(() => {});
+          recordReview({ key: `strum:${pid}`, kind: 'strum', label: `스트럼 ${pattern.name}`, nav: { tab: 'chord', mode: 'strum', strumId: pid }, note: `${bpm} BPM · 맞춘 ${Math.round(r.hitRate * 100)}%` }, ok);
           return { ok, up: next.bpm > prev.bpm };
         }} />
     </>

@@ -188,6 +188,10 @@ try {
     ok(await seen(page.locator('.status-chip')), '다른 탭에서 메트로놈 표시');
     await page.locator('.status-chip button').click();
     ok(await seen(page.getByText(/핑거|코드 전환/)), '오늘 화면: 오늘 한 연습');
+    await page.getByTestId('trend-toggle').click();
+    ok(await seen(page.getByTestId('trends')), '주별 추이 열기');
+    ok(await seen(page.getByText('패턴 템포 (처음 → 통과한 최고)')), '패턴 발전 기록');
+    await shotTall(page, 'scripts/shot-today-trends.png');
     await page.getByRole('button', { name: '설정' }).click();
     ok(await seen(page.getByRole('dialog', { name: '설정' })), '설정 열기');
     await page.screenshot({ path: 'scripts/shot-settings.png' });
@@ -206,6 +210,36 @@ try {
     const cents = await page.locator('.cents-num').textContent();
     ok(Math.abs(num(cents)) <= 4, `튜너 센트 ${cents}`);
     await page.screenshot({ path: 'scripts/shot-tuner.png' });
+    // 지판: 음 이름 맞히기 20문제 (정답 계산)
+    await page.getByRole('tablist').getByRole('button', { name: '지판' }).click();
+    await page.getByRole('button', { name: '음 이름 외우기' }).click();
+    await page.getByTestId('fret-start').click();
+    const OPEN = [40, 45, 50, 55, 59, 64], NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+    let answered = 0;
+    for (let i = 0; i < 20; i++) {
+      const t = await page.getByTestId('fret-q').textContent({ timeout: 3000 }).catch(() => null);
+      const m = /(\d)번 줄 (\d+)프렛/.exec(t ?? '');
+      if (!m) break;
+      const name = NAMES[(OPEN[6 - Number(m[1])] + Number(m[2])) % 12];
+      await page.locator('.note-grid12').getByRole('button', { name, exact: true }).click();
+      answered++;
+      await page.waitForTimeout(800);
+    }
+    ok(await seen(page.getByTestId('fret-result'), 3000), `음 이름 20문제 끝 (${answered})`);
+    ok(/20 \/ 20 맞음/.test(await page.getByTestId('fret-result').textContent()), '20문제 모두 맞음');
+    await page.getByLabel(/자리별 정답률/).check();
+    await shotTall(page, 'scripts/shot-fret-names.png');
+    // 스케일: A 마이너 펜타토닉 1번 → 따라 치기 (가짜 마이크 A2 = 첫 음)
+    await page.getByRole('button', { name: '스케일 모양' }).click();
+    await page.getByRole('button', { name: '마이너 펜타토닉' }).click();
+    await page.locator('.root-grid').getByRole('button', { name: 'A', exact: true }).click();
+    await page.getByRole('button', { name: '1번', exact: true }).click();
+    ok(await seen(page.getByText('(5~8프렛)')), 'A 마이너 펜타 1번 = 5~8프렛');
+    ok((await page.locator('.fb-dot.root').count()) >= 3, '근음 점');
+    await page.getByTestId('scale-follow').click();
+    ok(await seen(page.getByText(/^2 \/ 23/), 6000), '스케일 따라 치기: 첫 음(A2) 맞아 다음 음으로');
+    await shotTall(page, 'scripts/shot-scale.png');
+    await page.getByRole('button', { name: '■ 그만' }).click();
     // 태블릿 가로
     await page.setViewportSize({ width: 1280, height: 800 });
     await tab(page, '핑거');

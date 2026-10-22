@@ -15,6 +15,7 @@ import { setBusy } from '../state/busy';
 import { db, type ChangeRow } from '../data/db';
 import { localDate } from '../data/dates';
 import { clampBpm } from '../audio/schedule';
+import { recordReview, CHANGE_TARGET } from '../data/review';
 
 const seq = new Sequencer<number>();
 
@@ -103,6 +104,8 @@ function MinuteChanges({ pair, shapes }: { pair: [string, string]; shapes: Chord
     synth.ready().then((ctx) => synth.chuck(ctx.currentTime));
     const row: ChangeRow = { pair: key, count: countRef.current, date: localDate(), at: Date.now(), auto };
     db.changes.add(row).then(load).catch(() => {});
+    const target = CHANGE_TARGET[settings.level ?? 1];
+    recordReview({ key: `change:${key}`, kind: 'change', label: `1분 전환 ${pair[0]} ↔ ${pair[1]}`, nav: { tab: 'chord', mode: 'change', pair }, note: `${countRef.current}번 (목표 ${target})` }, countRef.current >= target);
     setSaved(countRef.current);
     setCur(null);
   }, [left]); // eslint-disable-line react-hooks/exhaustive-deps

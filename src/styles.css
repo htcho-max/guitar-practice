@@ -327,3 +327,49 @@ input.search { width: 100%; }
 .play-float button { white-space: nowrap; padding: 10px 14px; }
 .play-float > span { white-space: nowrap; font-size: 12px; }
 .song-page { padding-bottom: 72px; }
+
+/* 지판 */
+.fb-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 0 -4px; }
+.fb-svg { display: block; }
+.fb-wood { fill: color-mix(in srgb, #7c4a1e 22%, var(--surface)); }
+.fb-nut { fill: var(--text); }
+.fb-fret { stroke: var(--muted); stroke-width: 1.4; opacity: .6; }
+.fb-string { stroke: var(--muted); }
+.fb-string.hl { stroke: var(--accent); }
+.fb-inlay { fill: var(--line); }
+.fb-sname { font-size: 10px; fill: var(--muted); }
+.fb-fnum { font-size: 10px; fill: var(--muted); }
+.fb-box { fill: color-mix(in srgb, var(--accent) 10%, transparent); stroke: var(--accent); stroke-width: 1.2; stroke-dasharray: 4 3; }
+.fb-heat { fill: var(--bad); }
+.fb-heat.good { fill: var(--good); }
+.segmented.small button { white-space: nowrap; }
+.fb-dot circle { fill: var(--surface); stroke: var(--muted); stroke-width: 1.2; }
+.fb-dot text { font-size: 10px; font-weight: 700; fill: var(--text); }
+.fb-dot.dim circle { opacity: .35; }
+.fb-dot.dim text { opacity: .45; }
+.fb-dot.in circle { fill: var(--text); stroke: var(--text); }
+.fb-dot.in text { fill: var(--bg); }
+.fb-dot.root circle { fill: var(--accent); stroke: var(--accent); }
+.fb-dot.root text { fill: var(--accent-ink); }
+.fb-dot.q circle { fill: var(--accent); stroke: var(--accent); r: 13; }
+.fb-dot.q text { fill: var(--accent-ink); }
+.fb-dot.ok circle { fill: var(--good); stroke: var(--good); }
+.fb-dot.ok text, .fb-dot.bad text { fill: #fff; }
+.fb-dot.bad circle { fill: var(--bad); stroke: var(--bad); }
+.fb-dot.next circle { fill: var(--accent); stroke: var(--accent); }
+.fb-dot.next text { fill: var(--accent-ink); }
+.fb-dot.done circle { fill: var(--good); stroke: var(--good); opacity: .7; }
+.fb-dot.done text { fill: #fff; }
+.note-grid12 { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+.note-grid12 button { padding: 8px 0; font-weight: 700; }
+.note-grid12 button.right { background: var(--good); color: #fff; border-color: var(--good); }
+.note-grid12 button.wrong { background: var(--bad); color: #fff; border-color: var(--bad); }
+.quiz-q { font-size: 22px; font-weight: 800; text-align: center; }
+.quiz-score { display: flex; justify-content: space-between; color: var(--muted); font-size: 13px; }
+.accent { color: var(--accent); } button.mini.on-chip { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 700; }
+.review-card { border-color: var(--accent); }
+.review-item { width: 100%; display: flex; align-items: center; gap: 8px; text-align: left; padding: 10px 12px; }
+.review-item .grow { display: flex; flex-direction: column; gap: 2px; }
+.weeks8 { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; }
+.week-col { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.week-col .week-bar { height: 80px; }

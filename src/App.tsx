@@ -12,7 +12,7 @@ import { onNavigate, type TabId } from './state/navigate';
 import { useMetronomeRunning } from './state/useMetronome';
 import { metronome } from './audio/metronome';
 
-const TITLES: Record<TabId, string> = { today: '오늘의 연습', chord: '코드', finger: '핑거스타일', song: '내 곡', tuner: '튜너 · 메트로놈' };
+const TITLES: Record<TabId, string> = { today: '오늘의 연습', chord: '코드', finger: '핑거스타일', song: '내 곡', tuner: '튜너 · 지판' };
 
 export function App({ updatedFrom = null }: { updatedFrom?: string | null }) {
   const [toast, setToast] = useState<string | null>(updatedFrom ? `새 버전으로 업데이트됐어요 · ${__APP_VERSION__}` : null);

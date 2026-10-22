@@ -2,14 +2,15 @@ import { useEffect, useRef, useState } from 'react';
 import { mic } from '../audio/mic';
 import { judgeChord, type ChordVerdict } from '../audio/chroma';
 import { midiName } from '../audio/notes';
+import { recordReview } from '../data/review';
 
 /** 긁을 때마다 코드 판정 (소리 시작 → 0.25초 뒤부터 0.3초 평균) */
-export function useChordCheck(active: boolean, pcs: number[], bass?: number) {
+export function useChordCheck(active: boolean, pcs: number[], bass?: number, name?: string) {
   const [verdict, setVerdict] = useState<ChordVerdict | null>(null);
   const [listening, setListening] = useState(false);
   const key = pcs.join(',') + ':' + bass;
-  const target = useRef({ pcs, bass });
-  target.current = { pcs, bass };
+  const target = useRef({ pcs, bass, name });
+  target.current = { pcs, bass, name };
   useEffect(() => { setVerdict(null); }, [key]);
   useEffect(() => {
     if (!active) return;
@@ -24,7 +25,12 @@ export function useChordCheck(active: boolean, pcs: number[], bass?: number) {
         if (c) { c.forEach((v, k) => { acc[k] += v; }); n++; }
         if (i === arr.length - 1) {
           setListening(false);
-          if (n) setVerdict(judgeChord(acc.map((v) => v / n), target.current.pcs, target.current.bass));
+          if (n) {
+            const v = judgeChord(acc.map((x) => x / n), target.current.pcs, target.current.bass);
+            setVerdict(v);
+            const nm = target.current.name;
+            if (nm && v.verdict !== 'close') recordReview({ key: `chord:${nm}`, kind: 'chord', label: `코드 잡기 ${nm}`, nav: { tab: 'chord', mode: 'dict', chord: nm }, note: v.verdict === 'ok' ? '맞게 울림' : `들린 코드 ${v.heard}` }, v.verdict === 'ok');
+          }
         }
       }, ms));
     });
