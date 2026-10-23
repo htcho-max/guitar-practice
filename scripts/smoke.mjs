@@ -325,6 +325,31 @@ try {
     await tab(page, '내 곡');
     // 새 곡 붙여 넣기
     await page.getByRole('button', { name: '＋ 새 곡' }).click();
+    // 코드 없는 MusicXML → 코드 자동
+    await page.getByRole('button', { name: '취소' }).click();
+    await page.getByTestId('song-file').setInputFiles('scripts/test-nochords.musicxml');
+    ok(await seen(page.getByText(/멜로디로 코드를 붙였어요 \(C 조/)), '코드 없는 MusicXML: 코드 자동 (C 조)');
+    await page.getByRole('button', { name: /코드 없는 멜로디/ }).click();
+    ok(await seen(page.locator('.chips.scroll-x').getByRole('button', { name: 'F', exact: true })), '자동 코드 F 가 곡에');
+    ok(await seen(page.getByTestId('harm-redo')), '코드 새로 붙이기 버튼');
+    await page.getByTestId('harm-redo').click();
+    await page.getByRole('dialog').getByRole('button', { name: '7화음 (maj7·m7)' }).click();
+    ok(await seen(page.getByTestId('harm-preview').filter({ hasText: 'Cmaj7' })), '7화음 미리 보기');
+    await page.screenshot({ path: 'scripts/shot-harmonize.png' });
+    page.once('dialog', (d) => d.accept());
+    await page.getByTestId('harm-save').click();
+    ok(await seen(page.locator('.chips.scroll-x').getByRole('button', { name: 'Cmaj7' })), '7화음으로 바꿔 넣음');
+    await page.getByRole('button', { name: '목록으로' }).click();
+    // 멜로디만 적은 새 곡 → 코드 붙이기
+    await page.getByRole('button', { name: '＋ 새 곡' }).click();
+    await page.getByTestId('song-textarea').fill('{title: 멜로디만}\n{time: 3/4}\nM| rh D4q | G4h B4e G4e | B4h A4q | G4h E4q | D4h D4q\nM| G4h B4e G4e | B4h A4q | D4h E4q | G4h.');
+    await page.getByRole('button', { name: '저장' }).click();
+    ok(await seen(page.getByTestId('no-chords')), '코드 없는 곡 안내');
+    await page.getByTestId('harm-open').click();
+    await page.getByTestId('harm-save').click();
+    ok(await seen(page.getByTestId('arrange-open')), '코드 붙인 뒤 편곡 버튼');
+    await page.getByRole('button', { name: '목록으로' }).click();
+    await page.getByRole('button', { name: '＋ 새 곡' }).click();
     await page.getByTestId('photo-prompt').click();
     ok(await seen(page.getByRole('button', { name: '요청 글 복사' })), '사진 악보 요청 글');
     await page.getByTestId('song-textarea').fill('{title: 시험 곡}\n{capo: 1}\nAm      F\n그대 내게 행복을\n| C . G . | Am |');

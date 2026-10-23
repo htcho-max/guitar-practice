@@ -17,6 +17,7 @@ import { PositionMap } from '../components/PositionMap';
 import { addBarHits, easeBars, loadBarStats, weakBars } from '../data/weakbars';
 import { resumeAudio } from '../audio/context';
 import { PhotoPrompt } from '../components/PhotoPrompt';
+import { addChordsToSongText, melodyChordState, type HarmStyle, type HarmDensity } from '../song/harmonize';
 import { recordReview } from '../data/review';
 import { musicXmlToSong } from '../song/musicxml';
 import { parseMelody } from '../fingerstyle/melody';
@@ -198,6 +199,8 @@ function SongView({ song, onBack, onEdit, onChange, initialRange, initialBeats }
   const [result, setResult] = useState<FollowResult | null>(null);
   const [arranging, setArranging] = useState(false);
   const [editTab, setEditTab] = useState(false);
+  const [harmOpen, setHarmOpen] = useState(false);
+  useBackLayer(harmOpen, () => setHarmOpen(false));
   const hasTab = parsed.blocks.some((b) => b.kind === 'tab');
   const saveTab = async (src: [number, number], rows: string[]) => {
     const lines = song.text.replace(/\r\n?/g, '\n').split('\n');
@@ -462,9 +465,20 @@ function SongView({ song, onBack, onEdit, onChange, initialRange, initialBeats }
         </div>
       )}
       {tabEvents.length > 0 && !editTab && <PositionMap events={tabEvents} beatsPerBar={meta.beats} bars={Math.round(timeline.beats / meta.beats)} onPractice={(a, b, label) => startFocus(a, b, label)} />}
-      {melodyText ? (
-        <button className="secondary" onClick={() => { stop(); setArranging(true); }} data-testid="arrange-open">🎸 핑거스타일로 편곡 (멜로디 + 베이스)</button>
-      ) : chordsUsed.length > 0 && <p className="hint small">M| 줄로 멜로디를 적어 두면 코드와 합쳐 핑거스타일 탭을 만들어 줘요 (고치기 → 형식 도움말).</p>}
+      {melodyText && chordsUsed.length === 0 && (
+        <div className="card" data-testid="no-chords">
+          <b>코드가 없는 멜로디예요</b>
+          <p className="hint small">편곡하려면 코드가 필요해요. 마디의 음을 보고 코드를 붙여 줄게요.</p>
+          <button className="primary" onClick={() => { stop(); setHarmOpen(true); }} data-testid="harm-open">🎼 멜로디로 코드 붙이기</button>
+        </div>
+      )}
+      {harmOpen && <HarmonizeSheet song={song} beatsPerBar={meta.beats} replace={chordsUsed.length > 0} onClose={() => setHarmOpen(false)} onSaved={() => { setHarmOpen(false); onChange(); }} />}
+      {melodyText && chordsUsed.length > 0 ? (
+        <>
+          <button className="secondary" onClick={() => { stop(); setArranging(true); }} data-testid="arrange-open">🎸 핑거스타일로 편곡 (멜로디 + 베이스)</button>
+          {melodyChordState(song.text).withBars === melodyChordState(song.text).mel && <button className="link small" onClick={() => { stop(); setHarmOpen(true); }} data-testid="harm-redo">🎼 코드를 멜로디로 새로 붙이기</button>}
+        </>
+      ) : !melodyText && chordsUsed.length > 0 && <p className="hint small">M| 줄로 멜로디를 적어 두면 코드와 합쳐 핑거스타일 탭을 만들어 줘요 (고치기 → 형식 도움말).</p>}
       {arranging && <ArrangeSheet song={song} melody={melodyText} timeline={timeline} beatsPerBar={meta.beats} tempo={meta.tempo || 80} onClose={() => setArranging(false)} />}
       {chordsUsed.length > 0 && (
         <div className="chips scroll-x">
@@ -603,6 +617,72 @@ function ArrangeSheet({ song, melody, timeline, beatsPerBar, tempo, onClose }: {
           setSaved('새 곡으로 저장했어요. 목록에서 열 수 있어요.');
         }}>탭을 새 곡으로 저장</button>
         {saved && <p className="hint" role="status">{saved}</p>}
+      </div>
+    </div>
+  );
+}
+
+/** 멜로디 → 코드 붙이기 (미리 보고 곡에 넣기) */
+function HarmonizeSheet({ song, beatsPerBar, replace, onClose, onSaved }: { song: SongRow; beatsPerBar: number; replace: boolean; onClose: () => void; onSaved: () => void }) {
+  const [style, setStyle] = useState<HarmStyle>('basic');
+  const [density, setDensity] = useState<HarmDensity>('auto');
+  const [color, setColor] = useState(false);
+  const res = useMemo(() => addChordsToSongText(song.text, beatsPerBar, { style, density, color, replace: true }), [song.text, beatsPerBar, style, density, color]);
+  const preview = useMemo(() => (res ? res.text.split('\n').filter((l) => /^\s*\|.*\|\s*$/.test(l)) : []), [res]);
+  const [playing, setPlaying] = useState(false);
+  const { settings } = useSettings();
+  useEffect(() => () => { player.stop(); synth.stopAll(); }, []);
+  async function listen() {
+    if (!res) return;
+    if (playing) { player.stop(); synth.stopAll(); setPlaying(false); return; }
+    const p = parseSong(res.text);
+    const tl = buildTimeline(p);
+    const tuning = tuningById(settings.tuningId).midi;
+    const shapeOf = (n: string) => { const c = parseChord(n); return c ? shapeForSymbol(c, 0, tuning) : null; };
+    const plan = buildPlan(tl, { beatsPerBar, tuning, capo: 0, tabShift: 0, accomp: 'finger', strum: '', fingerId: beatsPerBar === 3 ? 'waltz' : 'pima', shown: (n) => n, shapeOf });
+    // 멜로디도 같이
+    const mel = parseMelody(p.blocks.filter((b): b is Block & { kind: 'melody' } => b.kind === 'melody').map((b) => b.text).join(' '));
+    await synth.ready();
+    const events: SeqEvent<SeqData>[] = [
+      ...plan.filter((e) => e.sound).map((e) => ({ beat: e.beat, play: (_c: AudioContext, w: number) => playSound({ ...e.sound!, ...(e.sound!.kind === 'notes' ? { vel: 0.45 } : {}) } as Sound, w) })),
+      ...mel.notes.filter((n) => n.midi !== null).map((n) => ({ beat: n.beat, play: (_c: AudioContext, w: number) => synth.note(n.midi!, w, 0.95, undefined, 0.7) })),
+    ];
+    await player.start(events, { bpm: p.meta.tempo || 80, endBeats: tl.beats, meterBeats: beatsPerBar, countIn: 0, click: false, onEnd: () => setPlaying(false) });
+    setPlaying(true);
+  }
+  return (
+    <div className="sheet-backdrop" onClick={onClose}>
+      <div className="sheet editor" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="코드 붙이기">
+        <div className="card-head"><b>🎼 멜로디로 코드 붙이기</b><button className="mini" onClick={onClose}>닫기</button></div>
+        <div className="row-setting small"><span>코드</span>
+          <div className="segmented small grow">
+            <button className={style === 'basic' ? 'on' : ''} onClick={() => setStyle('basic')}>기본 3화음</button>
+            <button className={style === 'seventh' ? 'on' : ''} onClick={() => setStyle('seventh')}>7화음 (maj7·m7)</button>
+          </div>
+        </div>
+        <div className="row-setting small"><span>바꾸는 간격</span>
+          <div className="segmented small grow">
+            <button className={density === 'bar' ? 'on' : ''} onClick={() => setDensity('bar')}>한 마디에 하나</button>
+            <button className={density === 'auto' ? 'on' : ''} onClick={() => setDensity('auto')}>필요하면 반 마디</button>
+          </div>
+        </div>
+        <label className="check-line small"><input type="checkbox" checked={color} onChange={(e) => setColor(e.target.checked)} /> 다채롭게 (Em·Am·Dm 같은 버금 코드를 더 쓰고, 같은 코드를 오래 끌지 않기)</label>
+        {res ? (
+          <>
+            <p className="hint small">조: <b>{res.key}</b> · 코드 {res.chords}번 바뀜. 센박과 긴 음이 코드 음이 되도록 고르고, 끝은 으뜸화음, 그 앞은 딸림화음으로 맺어요.</p>
+            <pre className="help-pre harm-preview" data-testid="harm-preview">{preview.join('\n')}</pre>
+            <div className="row-setting">
+              <button className="secondary" onClick={listen}>{playing ? '■ 정지' : '▶ 멜로디와 들어 보기'}</button>
+              <button className="primary grow" data-testid="harm-save" onClick={async () => {
+                if (replace && !confirm('지금 있는 마디 코드 줄을 새 코드로 바꿀까요?')) return;
+                player.stop(); synth.stopAll();
+                await saveSongText(song.id, res.text);
+                onSaved();
+              }}>곡에 넣기</button>
+            </div>
+            <p className="hint small">자동으로 고른 코드라 곡의 원래 코드와 다를 수 있어요. 넣은 뒤 「고치기」에서 마디 줄을 바로 고칠 수 있어요.</p>
+          </>
+        ) : <p className="hint">M| 멜로디 줄이 없어요.</p>}
       </div>
     </div>
   );

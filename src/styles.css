@@ -449,3 +449,5 @@ input.search { width: 100%; }
 .routine-steps li { display: flex; justify-content: space-between; gap: 8px; padding: 2px 0; }
 .focus-tag { color: var(--accent); }
 .steps { padding-left: 18px; }
+.harm-preview { font-size: 13px; max-height: 220px; overflow: auto; }
+.check-line { display: flex; gap: 8px; align-items: flex-start; margin: 6px 0; } .check-line input { margin-top: 3px; flex: none; }

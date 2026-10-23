@@ -1,4 +1,5 @@
 import { durToken } from '../fingerstyle/melody';
+import { harmonize } from './harmonize';
 
 /**
  * MusicXML 리드시트(멜로디 + 코드 이름) → 내 곡 글 (마디 줄 + M| 멜로디 줄).
@@ -18,7 +19,7 @@ const KIND: Record<string, string> = {
 const txt = (el: Element | null | undefined, sel: string) => el?.querySelector(sel)?.textContent?.trim() ?? '';
 const pitchName = (step: string, alter: number, flats: boolean) => ((flats || alter < 0 ? FLAT : SHARP)[(STEP[step] + alter + 12) % 12]);
 
-export interface XmlResult { text: string; bars: number; notes: number; chords: number; warnings: string[] }
+export interface XmlResult { text: string; bars: number; notes: number; chords: number; warnings: string[]; /** 코드를 자동으로 붙였으면 그 조 */ autoKey?: string }
 
 export function musicXmlToSong(xml: string, Parser: { new (): DOMParser } = DOMParser): XmlResult {
   const doc = new Parser().parseFromString(xml, 'application/xml');
@@ -99,6 +100,21 @@ export function musicXmlToSong(xml: string, Parser: { new (): DOMParser } = DOMP
   });
   if (beatType === 8) warnings.push('8분 박자표는 4분음표 박으로 바꿔 적었어요');
   if (part.querySelector('repeat, ending')) warnings.push('도돌이표는 펼치지 않았어요 — 필요하면 마디를 복사해 넣으세요');
+  // 코드가 하나도 없으면 멜로디로 코드를 붙임
+  let autoKey = '';
+  if (!bars.some((b) => b.harm.length)) {
+    const mel: { beat: number; dur: number; midi: number | null }[] = [];
+    let t = 0;
+    for (const b of bars) { let u = t; for (const n of b.notes) { mel.push({ beat: u, dur: n.dur, midi: n.midi }); u += n.dur; } t += b.len; }
+    const h = harmonize(mel, { beatsPerBar: bars[0]?.len ?? 4, fifths });
+    autoKey = h.key.name;
+    t = 0;
+    for (const b of bars) {
+      b.harm = h.spans.filter((s) => s.beat < t + b.len - 1e-6 && s.beat + s.dur > t + 1e-6).map((s) => ({ at: Math.max(0, s.beat - t), name: s.name }));
+      t += b.len;
+    }
+    warnings.push(`코드가 없어서 멜로디로 코드를 붙였어요 (${autoKey} 조로 봄) — 곡 화면의 「🎼 코드 새로 붙이기」에서 바꿀 수 있어요`);
+  }
   const firstChord = bars.find((b) => b.harm.length)?.harm[0].name ?? 'C';
 
   // 길이 → 멜로디 글자 (못 쓰는 길이는 붙임줄로 나눔)
@@ -144,8 +160,9 @@ export function musicXmlToSong(xml: string, Parser: { new (): DOMParser } = DOMP
   if (composer) head.push(`{artist: ${composer}}`);
   head.push(`{time: ${beatType === 8 ? Math.round(beats / 2) : beats}/4}`);
   if (tempo) head.push(`{tempo: ${tempo}}`);
+  if (autoKey) head.push(`{key: ${autoKey}}`, `{c: 코드는 멜로디로 자동으로 붙였어요}`);
   head.push('{c: MusicXML 에서 불러옴 — "핑거스타일로 편곡" 을 눌러 보세요}', '');
-  return { text: [...head, ...lines].join('\n'), bars: bars.length, notes: noteCount, chords: bars.reduce((a, b) => a + b.harm.length, 0), warnings };
+  return { text: [...head, ...lines].join('\n'), bars: bars.length, notes: noteCount, chords: bars.reduce((a, b) => a + b.harm.length, 0), warnings, autoKey };
 }
 
 function prevOf(bars: { harm: { name: string }[] }[], i: number, fallback: string): string {
