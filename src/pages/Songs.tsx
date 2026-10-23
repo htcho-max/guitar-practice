@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { db, type SongRow, type RecordingRow } from '../data/db';
-import { addSong, saveSongText } from '../data/songs';
+import { addSong, saveSongText, deleteSongs } from '../data/songs';
 import { SAMPLE_SONGS, FORMAT_HELP } from '../song/samples';
 import { parseSong, type Block, type ParsedSong } from '../song/parse';
 import { buildTimeline, defaultStrum, type TimelineItem } from '../song/timeline';
@@ -49,6 +49,10 @@ export function SongsTab() {
   const [editing, setEditing] = useState<SongRow | 'new' | null>(null);
   const [q, setQ] = useState('');
   const [msg, setMsg] = useState<string | null>(null);
+  // 정리: 여러 곡 골라 지우기
+  const [tidy, setTidy] = useState(false);
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const togglePick = (id: string) => setPicked((p) => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const load = () => db.songs.toArray().then((r) => setSongs(r.sort((a, b) => (b.openedAt || b.updatedAt) - (a.openedAt || a.updatedAt)))).catch(() => setSongs([]));
   useEffect(() => { load(); }, []);
   useBackLayer(openId !== null && !editing, () => setOpenId(null));
@@ -105,10 +109,26 @@ export function SongsTab() {
           <button className="secondary" onClick={addSamples}>예시 곡 넣기 (아리랑 · Amazing Grace · 로망스 · 작은 별)</button>
         </div>
       )}
+      {(songs?.length ?? 0) > 0 && (
+        <div className="row-setting small">
+          <button className={`mini ${tidy ? 'on' : ''}`} onClick={() => { setTidy(!tidy); setPicked(new Set()); }} data-testid="song-tidy">{tidy ? '정리 끝' : '🗑 곡 정리'}</button>
+          {tidy && <>
+            <button className="mini" onClick={() => setPicked(picked.size === list.length ? new Set() : new Set(list.map((s) => s.id)))}>{picked.size === list.length ? '모두 풀기' : '모두 고르기'}</button>
+            <button className="danger" disabled={!picked.size} data-testid="song-delete" onClick={async () => {
+              const names = (songs ?? []).filter((s) => picked.has(s.id)).map((s) => s.title);
+              if (!confirm(`${names.length}곡을 지울까요? (그 곡의 녹음도 함께 지워져요)\n\n${names.slice(0, 8).join('\n')}${names.length > 8 ? '\n…' : ''}`)) return;
+              await deleteSongs([...picked]);
+              setMsg(`${names.length}곡을 지웠어요.`);
+              setPicked(new Set()); setTidy(false); load();
+            }}>고른 {picked.size}곡 지우기</button>
+          </>}
+        </div>
+      )}
       <ul className="song-list">
         {list.map((s) => (
-          <li key={s.id}>
-            <button className="song-item" onClick={() => { setOpenId(s.id); db.songs.update(s.id, { openedAt: Date.now() }).catch(() => {}); }}>
+          <li key={s.id} className={tidy ? 'tidy' : ''}>
+            {tidy && <input type="checkbox" checked={picked.has(s.id)} onChange={() => togglePick(s.id)} aria-label={`${s.title} 고르기`} />}
+            <button className="song-item" onClick={() => { if (tidy) { togglePick(s.id); return; } setOpenId(s.id); db.songs.update(s.id, { openedAt: Date.now() }).catch(() => {}); }}>
               <b>{s.title}</b><span className="muted small">{s.artist}</span>
             </button>
           </li>
@@ -131,7 +151,7 @@ function SongEditor({ song, onClose }: { song: SongRow | null; onClose: (openId?
     else { const r = await addSong(text); onClose(r.id); }
   };
   const del = async () => {
-    if (song && confirm(`"${song.title}" 을(를) 지울까요?`)) { await db.songs.delete(song.id); onClose(); }
+    if (song && confirm(`"${song.title}" 을(를) 지울까요? (녹음도 함께 지워져요)`)) { await deleteSongs([song.id]); onClose(); }
   };
   return (
     <div className="page">

@@ -25,3 +25,13 @@ export async function saveSongText(id: string, text: string) {
   const { title, artist } = guessTitle(text);
   await db.songs.update(id, { text, title, artist, updatedAt: Date.now() });
 }
+
+/** 곡 지우기: 그 곡의 녹음·약한 마디 기록·복습함 항목도 함께 */
+export async function deleteSongs(ids: string[]) {
+  for (const id of ids) {
+    await db.songs.delete(id).catch(() => {});
+    await db.recordings.where('songId').equals(id).delete().catch(() => {});
+    await db.kv.delete(`weak-bars:${id}`).catch(() => {});
+    await db.reviews.filter((r) => r.key.startsWith(`song:${id}:`)).delete().catch(() => {});
+  }
+}

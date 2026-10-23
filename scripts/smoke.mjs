@@ -357,6 +357,17 @@ try {
     await page.getByRole('button', { name: '저장' }).click();
     ok(await seen(page.locator('.song-title', { hasText: '시험 곡' })), '새 곡 저장 → 열림');
     await page.screenshot({ path: 'scripts/shot-song-new.png' });
+    // 곡 정리: 골라 지우기
+    await page.getByRole('button', { name: '목록으로' }).click();
+    const nSongs = await page.locator('.song-list li').count();
+    await page.getByTestId('song-tidy').click();
+    await page.getByLabel('시험 곡 고르기').check();
+    await page.getByLabel('멜로디만 고르기').check();
+    page.once('dialog', (d) => d.accept());
+    await page.getByTestId('song-delete').click();
+    ok(await seen(page.getByText('2곡을 지웠어요.')), '곡 2개 지우기');
+    ok((await page.locator('.song-list li').count()) === nSongs - 2, '목록에서 빠짐');
+    await shotTall(page, 'scripts/shot-song-list.png');
 
     // 메트로놈
     await tab(page, '튜너');
@@ -393,6 +404,8 @@ try {
     await page.getByRole('button', { name: '설정' }).click();
     ok(await seen(page.getByRole('dialog', { name: '설정' })), '설정 열기');
     await page.getByLabel('박 소리').selectOption('bass');
+    ok(await seen(page.getByTestId('sample-status')), '기타 소리: 녹음 출처 표시');
+    ok(!(await page.getByTestId('sample-status').textContent()).includes('받지 못했어요'), '녹음 소리 받기 성공');
     await page.screenshot({ path: 'scripts/shot-settings.png' });
     ok(errors.length === 0, `콘솔 오류 없음 ${errors.slice(0, 3).join(' | ')}`);
     await browser.close();

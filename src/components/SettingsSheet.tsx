@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import { samples } from '../audio/samples';
+import { synth } from '../audio/synth';
+import { useEffect, useState } from 'react';
 import { useSettings } from '../state/settings';
 import { LEVEL_NAMES, type Level } from '../data/settings';
 import { TUNINGS } from '../guitar/tunings';
@@ -56,6 +58,14 @@ export function SettingsSheet({ onClose }: { onClose: () => void }) {
           <button className="mini" onClick={() => update({ goalMin: Math.min(180, settings.goalMin + 5) })}>+</button>
         </div>
         <div className="row-setting">
+          <span>기타 소리</span>
+          <select value={settings.guitarVoice} onChange={(e) => update({ guitarVoice: e.target.value as 'sample' | 'synth' })} aria-label="기타 소리">
+            <option value="sample">실제 녹음 (스틸 기타)</option><option value="synth">합성 (내려받기 없음)</option>
+          </select>
+          <button className="mini" onClick={async () => { const c = await synth.ready(); synth.strum([40, 47, 52, 56, 59, 64], c.currentTime + 0.05, 'down', 0.8); synth.harm(76, c.currentTime + 1.4, 0.8, 5); }} aria-label="기타 소리 들어 보기">▶</button>
+        </div>
+        <SampleStatus voice={settings.guitarVoice} />
+        <div className="row-setting">
           <span>박 소리</span>
           <select value={settings.backing} onChange={(e) => update({ backing: e.target.value as 'click' | 'drums' | 'bass' })} aria-label="박 소리">
             <option value="click">클릭</option><option value="drums">드럼</option><option value="bass">드럼 + 베이스</option>
@@ -111,5 +121,18 @@ export function SettingsSheet({ onClose }: { onClose: () => void }) {
         </div>
       </div>
     </div>
+  );
+}
+
+/** 녹음 소리 받는 중 / 실패 / 출처 */
+function SampleStatus({ voice }: { voice: 'sample' | 'synth' }) {
+  const [, tick] = useState(0);
+  useEffect(() => samples.onChange(() => tick((n) => n + 1)), []);
+  if (voice !== 'sample') return null;
+  return (
+    <p className="hint small" data-testid="sample-status">
+      {samples.failed ? '녹음 소리를 일부 받지 못했어요 — 그 음은 합성 소리로 나요. ' : !samples.ready ? (samples.progress > 0 ? `녹음 소리 받는 중 ${Math.round(samples.progress * 100)}% (약 0.9MB, 한 번만) · ` : '처음 재생할 때 녹음 소리를 받아요 (약 0.9MB, 한 번만) · ') : ''}
+      소리: FluidR3_GM 스틸 기타 (Frank Wen, CC BY 3.0). 하모닉스·슬랩·몸통 치기는 합성.
+    </p>
   );
 }

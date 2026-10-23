@@ -19,7 +19,11 @@ export default defineConfig(({ mode }) => ({
     react(),
     VitePWA({
       registerType: 'prompt', // 새 버전은 연습 중이 아닐 때 적용 (appUpdate.ts)
-      workbox: { maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, skipWaiting: true, clientsClaim: true },
+      workbox: {
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, skipWaiting: true, clientsClaim: true,
+        // 기타 녹음 소리: 처음 받을 때 저장해 두고 그다음부터 오프라인
+        runtimeCaching: [{ urlPattern: /\/samples\/.*\.mp3$/, handler: 'CacheFirst', options: { cacheName: 'guitar-samples', expiration: { maxEntries: 120 } } }],
+      },
       includeAssets: ['icon.svg', 'icon-*.png', 'apple-touch-icon.png'],
       manifest: {
         name: '기타 연습 도우미',

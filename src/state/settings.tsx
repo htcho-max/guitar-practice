@@ -33,6 +33,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   useEffect(() => { setOutputLatency(settings.latencyMs / 1000); }, [settings.latencyMs]);
   useEffect(() => { synth.a4 = settings.a4; mic.a4 = settings.a4; }, [settings.a4]);
   useEffect(() => { synth.setVolume(settings.synthVolume); }, [settings.synthVolume]);
+  useEffect(() => { synth.setVoice(settings.guitarVoice); }, [settings.guitarVoice]);
   useEffect(() => { mic.inputLatency = settings.roundTripMs / 1000; }, [settings.roundTripMs]);
   useEffect(() => { mic.minDb = settings.minDb; }, [settings.minDb]);
   useEffect(() => { metronome.sound = settings.clickSound; metronome.volume = settings.clickVolume; }, [settings.clickSound, settings.clickVolume]);

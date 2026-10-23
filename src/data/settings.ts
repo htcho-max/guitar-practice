@@ -30,6 +30,8 @@ export interface Settings {
   minDb: number;
   /** 박 소리: 클릭 / 드럼 / 드럼+베이스 (곡·핑거스타일 재생) */
   backing: 'click' | 'drums' | 'bass';
+  /** 기타 소리: 실제 녹음 / 합성 */
+  guitarVoice: 'sample' | 'synth';
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -50,6 +52,7 @@ export const DEFAULT_SETTINGS: Settings = {
   goalMin: 20,
   minDb: -55,
   backing: 'click',
+  guitarVoice: 'sample',
 };
 
 export function mergeSettings(stored: Partial<Settings> | undefined): Settings {

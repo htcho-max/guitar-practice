@@ -1,0 +1,3 @@
+Acoustic Guitar (steel) samples, MIDI 38-86.
+Rendered from FluidR3_GM.sf2 by Frank Wen, via https://github.com/gleitz/midi-js-soundfonts
+License: Creative Commons Attribution 3.0 (https://creativecommons.org/licenses/by/3.0/)
